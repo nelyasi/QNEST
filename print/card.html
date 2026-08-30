@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>QNEST — Business card</title>
+<link rel="stylesheet" href="print.css">
+<style>
+/* ==========================================================================
+   BUSINESS CARD — 85 × 55 mm, the European standard, with 3 mm bleed
+   all round, so each page is 91 × 61 mm.
+   Page 1 = front (dark), page 2 = back (light).
+   ========================================================================== */
+@page { size: 91mm 61mm; margin: 0; }
+
+.sheet {
+  width: 91mm;
+  height: 61mm;
+  padding: 3mm;              /* the bleed — nothing important goes in here */
+  position: relative;
+}
+
+.card-face {
+  width: 85mm;
+  height: 55mm;
+  padding: 6mm 7mm;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* trim marks — screen only, so you can see where the cut lands */
+.trim {
+  position: absolute;
+  inset: 3mm;
+  border: 1px dashed rgba(155, 107, 255, .55);
+  pointer-events: none;
+}
+@media print { .trim { display: none; } }
+
+/* ---------- front ---------- */
+.card-face--deep {
+  background: var(--deep);
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.card-face--deep .fiber {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(155,107,255,0), rgba(155,107,255,.55), rgba(155,107,255,0));
+}
+.card__logo { width: 52mm; position: relative; }
+.card__tag {
+  margin: 5mm 0 0;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--steel);
+  position: relative;
+}
+
+/* ---------- back ---------- */
+.card-face--light { background: var(--paper); }
+
+.bk__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 4mm; }
+.bk__mark { width: 13mm; flex: none; }
+
+.bk__name {
+  margin: 0;
+  font-size: 12pt;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.bk__role {
+  margin: 1mm 0 0;
+  font-size: 6.6pt;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+.bk__aff { margin: 2.5mm 0 0; font-size: 7pt; line-height: 1.45; color: var(--ink-soft); }
+
+.bk__foot { margin-top: auto; }
+.bk__line { font-size: 7.6pt; line-height: 1.6; color: var(--ink); }
+.bk__line strong { font-weight: 700; }
+.bk__url { color: var(--violet); font-weight: 700; }
+.bk__demo {
+  margin: 2mm 0 0;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+</style>
+</head>
+<body>
+
+<p class="hint">
+  <strong>Business card — 85 × 55 mm with 3 mm bleed (page size 91 × 61 mm).</strong>
+  Page 1 is the front, page 2 the back. Send the PDF to the printer as-is; the dashed line is the trim
+  edge and only shows on screen. Swap the name, role and email on the back for whoever the card is for.
+  Save as PDF with <strong>Background graphics</strong> on, or the dark front prints white.
+</p>
+
+<!-- ======================= FRONT ======================= -->
+<div class="sheet">
+  <div class="trim"></div>
+  <div class="card-face card-face--deep">
+    <div class="fiber"></div>
+    <img class="card__logo" src="../docs/images/logo-qnest-white.png" alt="QNEST">
+    <p class="card__tag">End-to-end simulation of optical quantum data centers</p>
+  </div>
+</div>
+
+<!-- ======================= BACK ======================= -->
+<div class="sheet">
+  <div class="trim"></div>
+  <div class="card-face card-face--light">
+
+    <div class="bk__top">
+      <div>
+        <p class="bk__name">Seyed Navid Elyasi</p>
+        <p class="bk__role">QNEST · Lead developer</p>
+        <p class="bk__aff">
+          Department of Electrical Engineering<br>
+          Chalmers University of Technology<br>
+          Gothenburg, Sweden
+        </p>
+      </div>
+      <img class="bk__mark" src="../docs/images/favicon.png" alt="">
+    </div>
+
+    <hr class="rule">
+
+    <div class="bk__foot">
+      <p class="bk__line" style="margin:0">
+        <strong>elyasi@chalmers.se</strong>
+      </p>
+      <p class="bk__line bk__url" style="margin:0">
+        github.com/qnest-toolkit/qnest
+      </p>
+      <p class="bk__demo">ECOC 2026 · Demo D22 · Tue 22 Sept · Pavilion 1</p>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
