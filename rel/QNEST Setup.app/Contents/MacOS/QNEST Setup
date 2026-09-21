@@ -1,8 +1,0 @@
-#!/bin/sh
-set -eu
-HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-case "$(uname -m)" in
-  arm64) exec "$HERE/qnest-setup-arm64" "$@" ;;
-  x86_64) exec "$HERE/qnest-setup-amd64" "$@" ;;
-  *) echo "QNEST Setup: unsupported macOS architecture: $(uname -m)" >&2; exit 2 ;;
-esac
