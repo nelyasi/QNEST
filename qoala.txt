@@ -1,0 +1,31 @@
+# ============================================================
+# MAIN KERNEL:  qoala
+# ============================================================
+#
+# Runs the plain (non-%%pytket) notebook cells:
+#
+#     steps 5-9
+#     Qoala / NetSquid scheduling
+#     request table, AFA-QSP, HAMFA-QSP
+#     Gantt chart generation
+#
+# Installed by install.sh into the conda env named "qoala".
+#
+# ------------------------------------------------------------
+# NOT LISTED HERE (handled separately by install.sh):
+#
+#   netsquid    -> private index, needs credentials
+#   qoala-sim   -> installed from GitHub
+# ------------------------------------------------------------
+
+# --- numerics / tables --------------------------------------
+numpy
+pandas
+
+# --- notebook + the dual-kernel bridge ----------------------
+# jupyter_client is what start_new_kernel() uses to launch the
+# secondary pytket_dqc kernel.
+ipykernel
+jupyter_client
+ipython
+notebook

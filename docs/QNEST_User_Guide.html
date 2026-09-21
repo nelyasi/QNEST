@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QNEST User Guide</title>
+<style>
+:root{--navy:#101828;--blue:#175cd3;--teal:#0e9384;--red:#b42318;--text:#101828;--muted:#475467;--hint:#667085;--line:#eaecf0;--panel:#fff;--page:#f5f7fa;--soft:#f8fafc}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--page);color:var(--text);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:var(--navy);color:#fff;padding:42px max(5vw,28px)}
+header .eyebrow{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#98a2b3;margin-bottom:8px}
+header h1{margin:0;font-size:38px;line-height:1.1}
+header p{margin:10px 0 0;max-width:820px;color:#d0d5dd}
+.shell{display:grid;grid-template-columns:250px minmax(0,980px);gap:34px;max-width:1320px;margin:0 auto;padding:34px 28px 72px}
+nav{position:sticky;top:20px;align-self:start;background:var(--panel);border:1px solid var(--line);padding:16px}
+nav strong{display:block;margin:2px 8px 10px}
+nav a{display:block;padding:7px 8px;border-radius:6px;text-decoration:none;color:var(--muted)}
+nav a:hover{background:#f2f4f7;color:var(--blue)}
+main{background:var(--panel);border:1px solid var(--line);padding:38px 42px;min-width:0}
+h2{font-size:25px;margin:42px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2:first-child{margin-top:0}
+h3{font-size:19px;margin:28px 0 8px}
+p{margin:9px 0 14px}
+ul,ol{padding-left:24px}
+li{margin:5px 0}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre{overflow:auto;background:#f2f4f7;border-left:3px solid var(--blue);padding:14px 17px}
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:17px 0 20px}
+.flow span{background:#eaf2ff;color:#1849a9;border:1px solid #c7d7fe;border-radius:7px;padding:8px 12px;font-weight:650}
+.note{background:var(--soft);border:1px solid var(--line);border-left:3px solid var(--blue);padding:13px 15px;margin:15px 0}
+.warn{border-left-color:var(--red)}
+table{width:100%;border-collapse:collapse;margin:15px 0 22px;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+th{background:#f9fafb;color:var(--muted);font-weight:650}
+.kicker{color:var(--teal);font-weight:700}
+.small{font-size:14px;color:var(--hint)}
+@media(max-width:860px){.shell{grid-template-columns:1fr;padding:20px 14px 50px}nav{position:static}main{padding:26px 20px}header{padding:32px 22px}}
+</style>
+</head>
+<body>
+<header>
+<div class="eyebrow">QNEST v0.3.12</div>
+<h1>Quantum Network End-to-End Simulation Toolkit</h1>
+<p>This guide follows the current desktop application: batch-aware circuit preparation, physical-network modelling, pytket-DQC distribution, Qoala/NetSquid scheduling, switch-gated AFA/HAMFA Monte Carlo analysis, and the local QNEST Assistant.</p>
+</header>
+<div class="shell">
+<nav>
+<strong>Contents</strong>
+<a href="#start">Getting started</a>
+<a href="#workflow">Workspace</a>
+<a href="#circuit">Circuit</a>
+<a href="#network">Network</a>
+<a href="#compile">Compile</a>
+<a href="#schedule">Schedule</a>
+<a href="#run">Run / Analyse</a>
+<a href="#assistant">AI Assistant</a>
+<a href="#outputs">Files and exports</a>
+<a href="#settings">Settings</a>
+<a href="#bugs">Bug reports</a>
+<a href="#trouble">Troubleshooting</a>
+</nav>
+<main>
+<h2 id="start">Getting started</h2>
+<p>QNEST uses two scientific Python environments. The desktop application, Qoala/NetSquid scheduler, AFA-QSP, HAMFA-QSP and plotting run in <code>qoala</code>. MQT Bench, Qiskit, pytket, DQCPass and pytket-DQC run in <code>pytket_dqc</code>.</p>
+<p>Install both environments from the project directory:</p>
+<pre>./install.sh</pre>
+<p>To check an existing installation without rebuilding it:</p>
+<pre>./install.sh --verify</pre>
+<p>Start the application with:</p>
+<pre>./launch_qnest.sh</pre>
+<div class="note">The launcher locates the <code>qoala</code> interpreter even when Conda has not been initialised in the current shell. Use <code>QNEST_PYTHON</code> only when a custom interpreter path is required.</div>
+
+<h2 id="workflow">Workspace</h2>
+<p>QNEST keeps one experiment state across five stages.</p>
+<div class="flow"><span>Circuit</span><span>Network</span><span>Compile / Distribute</span><span>Schedule</span><span>Run / Analyse</span></div>
+<p>The left rail selects the active stage. The top toolbar opens the AI Assistant, Settings, Documentation, Report a Bug and About. The Assistant is a docked tool window; opening or closing it changes the available workspace width without changing the experiment state.</p>
+
+<h2 id="circuit">Circuit</h2>
+<p>The Circuit page can import source files, generate MQT Bench circuits, or edit QASM directly. Choose <strong>Single circuit</strong> for a one-circuit experiment or <strong>Batch / sweep</strong> when several circuits should move through the same downstream workflow.</p>
+<h3>MQT Bench</h3>
+<p>Scalable benchmarks use an inclusive qubit range. QNEST checks the requested benchmark/size combinations against the installed MQT Bench version before generation. The benchmark list stays in two columns and long labels wrap inside their column.</p>
+<p>The assistant's default starter experiment is a GHZ sweep from <strong>5 to 20 qubits in steps of 2</strong>.</p>
+<h3>Batch circuit set</h3>
+<p>Each generated or imported circuit is kept as a separate record. Compile, Schedule and Run operate on the selected circuit or an eligible all-circuits scope, depending on the current stage.</p>
+
+<h2 id="network">Network</h2>
+<p>The Network page defines the physical architecture and the computation capacity available to the distributor. The Table view is authoritative for predefined topologies; the Designer is used for custom graphs and for visual inspection.</p>
+<h3>Capacity and topology</h3>
+<p>Set the number of servers/QPUs, qubits per QPU and topology. For <strong>All-to-all</strong>, choose either <strong>Direct QPU links</strong> or <strong>Shared switch</strong>. A shared switch can be <strong>All-photonic</strong> or <strong>Memory-assisted</strong>.</p>
+<h3>Calculated link performance</h3>
+<p>Distance is editable. QNEST calculates success probability, fidelity, attempt rate, Ebit rate and propagation latency from the active physical model. These calculated values should not be treated as independent manual inputs.</p>
+<p>In Memory-assisted mode, the page shows the memory parameters together with the photonic parameters that generate entanglement before storage. Stored-pair fidelity is then aged by the HAMFA memory model during Run.</p>
+<div class="note">Network explanatory text is left aligned and wraps to the live workspace width. The layout is designed to remain readable with the AI Assistant dock open.</div>
+
+<h2 id="compile">Compile / Distribute</h2>
+<p>Compile prepares the circuit for distributed execution and writes the bridge used by the scheduler. The pipeline cleans the source, applies DQCPass preparation, distributes the circuit with pytket-DQC, creates the explicit EJPP representation, and exports the Qoala bridge.</p>
+<p>The Compile preview retains the main stages: Original, Cleaned, After DQCPass, Distributed circuit and EJPP representation. Use <strong>Open interactive</strong> when an interactive HTML representation is available.</p>
+
+<h2 id="schedule">Schedule</h2>
+<p>Schedule runs the Qoala/NetSquid timing workflow using the bridge from Compile. The desktop controls use microseconds. Backend files may retain nanoseconds when the scientific code expects them.</p>
+<p>The Schedule visualization tab provides Timed Gantt and Layer Gantt views. The in-app view is a local preview; <strong>Open interactive</strong> opens the saved HTML without rerunning scheduling.</p>
+<p>Request tables and schedule artifacts are stored under <code>04_schedule/</code> in the circuit's run directory.</p>
+
+<h2 id="run">Run / Analyse</h2>
+<p>AFA-QSP/HAMFA-QSP Monte Carlo is available only when the network uses <strong>All-to-all → Shared switch</strong>. If the network is switch-free, the executable workflow ends after Schedule. The Run page then exposes the earlier-stage artifacts as one exportable package rather than starting protocol Monte Carlo.</p>
+<p>When Monte Carlo is enabled, Compile and Schedule are reused. Only the stochastic AFA/HAMFA protocol stage is repeated.</p>
+<h3>Reference settings</h3>
+<table>
+<tr><th>Parameter</th><th>Initial value</th></tr>
+<tr><td>Distribution method</td><td><code>PartitioningAnnealing</code></td></tr>
+<tr><td>Distribution seed</td><td>1</td></tr>
+<tr><td>Single-qubit gate</td><td>5.5 µs</td></tr>
+<tr><td>Two-qubit gate</td><td>66 µs</td></tr>
+<tr><td>EPR + EJPP start</td><td>276.471 µs</td></tr>
+<tr><td>Ending process</td><td>71.99 µs</td></tr>
+<tr><td>Qoala strategy</td><td><code>QOALA</code></td></tr>
+<tr><td>Protocol seed</td><td>42</td></tr>
+<tr><td>Monte Carlo repetitions</td><td>30</td></tr>
+<tr><td>Memory coherence constant</td><td>2.8e9 ns</td></tr>
+<tr><td>Initial stored-pair fidelity</td><td>0.9796744718797619</td></tr>
+<tr><td>Fidelity threshold</td><td>0.9306907483</td></tr>
+<tr><td>Cutoff fraction</td><td>0.05</td></tr>
+</table>
+<p class="small">These are starting values taken from the bundled reference workflow. Researcher-entered values take precedence.</p>
+<h3>Per-request tables</h3>
+<p>The Run page intentionally hides simulator-only diagnostics from the normal result surface. The visible tables contain the fields needed to read each request outcome.</p>
+<table>
+<tr><th>AFA-QSP</th><th>HAMFA-QSP</th></tr>
+<tr><td>Request</td><td>Request</td></tr>
+<tr><td>Control QPU / Target QPU</td><td>Control QPU / Target QPU</td></tr>
+<tr><td>Control link / Target link</td><td>Control link / Target link</td></tr>
+<tr><td>Wait window</td><td>Wait window</td></tr>
+<tr><td>Deadline</td><td>Deadline</td></tr>
+<tr><td>Punishment</td><td>Case</td></tr>
+<tr><td>Trials</td><td>Path</td></tr>
+<tr><td>Time to success</td><td>Completion</td></tr>
+<tr><td>Blocked</td><td>Time to success</td></tr>
+<tr><td>Deadline margin</td><td>Punishment</td></tr>
+<tr><td></td><td>Blocked</td></tr>
+<tr><td></td><td>Deadline margin</td></tr>
+</table>
+<p>Headers and values are centred in the result viewer. Alternating row backgrounds and compact number formatting are used to keep wide Monte Carlo tables readable.</p>
+<h3>Units</h3>
+<p>The result selector can show time columns in <strong>ns</strong> or <strong>µs</strong>. This is a display conversion only. The saved per-replicate result tables stay in raw ns so the underlying data is not rewritten when the display unit changes.</p>
+<h3>Batch plots</h3>
+<p>Batch/sweep mode keeps the publication-style scaling figures for EPR pairs, AFA/HAMFA punishment time, HAMFA resource use and blocked requests versus circuit size.</p>
+
+<h2 id="assistant">QNEST Assistant</h2>
+<p>The Assistant is a planning, configuration and explanation layer. The default local model is Qwen3 8B through Ollama. It receives a fresh control catalogue and scientific workspace summary for every request, so changes made in the GUI are reflected in the next assistant turn.</p>
+<p>For an all-to-all network where no interconnect is named, the assistant uses <strong>Shared switch → Memory-assisted</strong>. Explicit researcher choices always take priority.</p>
+<p>The default suggestion builds <strong>GHZ 5→20, step 2, on 7 QPUs with 4 qubits/QPU, All-to-all, Shared switch, Memory-assisted</strong>.</p>
+<p>The Assistant understands Run gating. It must stop after Schedule for switch-free networks and must not propose AFA/HAMFA Monte Carlo in that configuration.</p>
+<p>When asked to interpret Run results, it receives the same compact per-request tables shown in the UI and the currently selected display unit. Internal HAMFA implementation diagnostics are not presented as the main result table.</p>
+<p>Prepare the local model with:</p>
+<pre>./setup_qwen.sh</pre>
+<p>Connection settings are under <strong>Settings → AI Assistant</strong>.</p>
+
+<h2 id="outputs">Files and exports</h2>
+<p>Each compiled circuit has a stage-structured run directory:</p>
+<pre>runs/&lt;experiment&gt;/
+  01_circuit/
+  02_network/
+  03_compile/
+  04_schedule/
+  05_run/
+  logs/</pre>
+<p>Per-replicate AFA/HAMFA result tables are stored under <code>05_run/result_tables/run_XXX/</code>. Batch exports preserve the individual per-circuit run folders rather than flattening them into one directory.</p>
+
+<h2 id="settings">Settings</h2>
+<p>Settings controls appearance, UI scale, startup behaviour and AI configuration. Interface preferences are stored in <code>~/.qnest/ui_settings.json</code>.</p>
+<p>Changing appearance settings does not change scientific parameters.</p>
+
+<h2 id="bugs">Bug reports</h2>
+<p>Choose <strong>Report a Bug</strong> from the toolbar. The report is prepared for:</p>
+<p><strong>elyasi@chalmers.se</strong></p>
+<p>The dialog can save a diagnostic ZIP containing the report text, UI settings and current-run logs. QNEST then opens the default mail application with the recipient, subject and report text filled in. Attach the diagnostic ZIP before sending when one was created.</p>
+<div class="note warn">QNEST does not store SMTP credentials and does not silently send mail in the background. The final Send action remains in the user's mail application.</div>
+
+<h2 id="trouble">Troubleshooting</h2>
+<h3>Compile cannot find pytket-DQC</h3>
+<p>Run <code>./install.sh --verify</code> and confirm that the <code>pytket_dqc</code> Jupyter kernel is registered.</p>
+<h3>Schedule is unavailable</h3>
+<p>Compile the selected circuit first. In batch mode, confirm that the Schedule scope contains the intended compiled circuits.</p>
+<h3>Run is disabled</h3>
+<p>Check the Network architecture. AFA/HAMFA Monte Carlo requires All-to-all → Shared switch. Direct links are intentionally schedule-only.</p>
+<h3>Result values look unexpectedly large</h3>
+<p>Check the result-unit selector first. Raw saved timing values use ns; the GUI can show the same values in µs without changing the simulation.</p>
+<h3>The AI Assistant proposes the wrong downstream stage</h3>
+<p>Confirm the live Network architecture and circuit mode. The Assistant receives current state on every turn; starting a new assistant message after a GUI change should use the updated prerequisites.</p>
+</main>
+</div>
+</body>
+</html>

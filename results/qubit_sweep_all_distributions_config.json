@@ -1,0 +1,54 @@
+{
+  "network": {
+    "n_qpus": 14,
+    "qubits_per_qpu": 10,
+    "total_internal_qubits": 140
+  },
+  "sweep": {
+    "benchmark": "ghz",
+    "qubit_counts": [
+      11,
+      21,
+      31,
+      41,
+      51,
+      61,
+      71,
+      81,
+      91,
+      101,
+      111,
+      121
+    ],
+    "distribution_seed": 1,
+    "distribution_methods": [
+      "PartitioningAnnealing",
+      "PartitioningHeterogeneous",
+      "PartitioningHeterogeneousEmbedding",
+      "CoverEmbedding",
+      "CoverEmbeddingSteiner",
+      "CoverEmbeddingSteinerDetached"
+    ],
+    "n_distribution_methods": 6,
+    "total_experiment_points": 72
+  },
+  "qoala": {
+    "single_qubit_time_ns": 5500,
+    "two_qubit_time_ns": 66000,
+    "starting_process_time_ns": 276471,
+    "ending_process_time_ns": 71990,
+    "strategy": "QOALA"
+  },
+  "qsp": {
+    "p_succ": 0.044426421303161545,
+    "time_per_trial_ns": 198981,
+    "protocol_seed_base": 42,
+    "t_cut_ns": 8388050365.951175,
+    "delta_t_c_ns": 2800000000.0,
+    "F_I": 0.9796744718797619,
+    "F_T": 0.9306907483,
+    "alpha": 0.05,
+    "deadline_equal_is_blocked": true,
+    "background_start_ns": 0.0
+  }
+}

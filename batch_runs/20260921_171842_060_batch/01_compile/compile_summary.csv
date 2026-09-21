@@ -1,0 +1,9 @@
+circuit,source,series,n_qubits,n_gates_original,depth_original,n_gates_distributed,distributed_depth,epr_pairs,n_qpus,status,error
+GHZ_State_q5,MQT Bench,GHZ State,5,19,11,21,12,1,7,ok,
+GHZ_State_q7,MQT Bench,GHZ State,7,27,15,29,16,1,7,ok,
+GHZ_State_q9,MQT Bench,GHZ State,9,35,19,39,21,2,7,ok,
+GHZ_State_q11,MQT Bench,GHZ State,11,43,23,47,25,2,7,ok,
+GHZ_State_q13,MQT Bench,GHZ State,13,51,27,57,30,3,7,ok,
+GHZ_State_q15,MQT Bench,GHZ State,15,59,31,65,34,3,7,ok,
+GHZ_State_q17,MQT Bench,GHZ State,17,67,35,75,39,4,7,ok,
+GHZ_State_q19,MQT Bench,GHZ State,19,75,39,83,43,4,7,ok,

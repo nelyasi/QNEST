@@ -1,0 +1,77 @@
+{
+  "mqt_version": "2.2.3",
+  "rows": [
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 5,
+      "actual_qubits": 5,
+      "gates": 10,
+      "depth": 6
+    },
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 7,
+      "actual_qubits": 7,
+      "gates": 14,
+      "depth": 8
+    },
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 9,
+      "actual_qubits": 9,
+      "gates": 18,
+      "depth": 10
+    },
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 11,
+      "actual_qubits": 11,
+      "gates": 22,
+      "depth": 12
+    },
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 13,
+      "actual_qubits": 13,
+      "gates": 26,
+      "depth": 14
+    },
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 15,
+      "actual_qubits": 15,
+      "gates": 30,
+      "depth": 16
+    },
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 17,
+      "actual_qubits": 17,
+      "gates": 34,
+      "depth": 18
+    },
+    {
+      "ok": true,
+      "display": "GHZ State",
+      "benchmark": "ghz",
+      "nq": 19,
+      "actual_qubits": 19,
+      "gates": 38,
+      "depth": 20
+    }
+  ]
+}

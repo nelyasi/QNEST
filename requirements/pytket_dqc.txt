@@ -1,0 +1,5 @@
+kahypar
+hypernetx
+mqt.bench
+qiskit
+ipykernel

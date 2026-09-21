@@ -1,0 +1,45 @@
+circuit,source,series,n_qubits,strategy,total_execution_time_us,n_original_events,used_qpus,requests,status,error
+GHZ_State_q5,MQT Bench,GHZ State,5,QOALA,672.961,21,"[
+  1,
+  4
+]",1,ok,
+GHZ_State_q7,MQT Bench,GHZ State,7,QOALA,672.961,29,"[
+  0,
+  2
+]",1,ok,
+GHZ_State_q9,MQT Bench,GHZ State,9,QOALA,1307.422,39,"[
+  1,
+  4,
+  6
+]",2,ok,
+GHZ_State_q11,MQT Bench,GHZ State,11,QOALA,1318.422,47,"[
+  2,
+  3,
+  5
+]",2,ok,
+GHZ_State_q13,MQT Bench,GHZ State,13,QOALA,1303.393,57,"[
+  1,
+  2,
+  3,
+  4
+]",3,ok,
+GHZ_State_q15,MQT Bench,GHZ State,15,QOALA,1303.393,65,"[
+  0,
+  3,
+  5,
+  6
+]",3,ok,
+GHZ_State_q17,MQT Bench,GHZ State,17,QOALA,1579.864,75,"[
+  0,
+  2,
+  3,
+  4,
+  5
+]",4,ok,
+GHZ_State_q19,MQT Bench,GHZ State,19,QOALA,2730.344,83,"[
+  1,
+  2,
+  3,
+  4,
+  6
+]",4,ok,

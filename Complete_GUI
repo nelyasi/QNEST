@@ -1,0 +1,2163 @@
+"""
+app_gui.py
+==========
+Desktop GUI for the Quantum Circuit Distribution toolkit.
+
+Structure
+---------
+1. SplashScreen  — shows a logo/image + animated progress bar for ~3 s,
+                   then auto-opens the main window.
+2. MainWindow    — left 1/7 sidebar menu (Circuit · Network · Compile ·
+                   Schedule · Run) + right 6/7 content panel that swaps
+                   on each menu click.
+
+Usage
+-----
+    python app_gui.py
+"""
+
+from __future__ import annotations
+
+import tkinter as tk
+from tkinter import ttk, scrolledtext, filedialog, messagebox
+import threading
+import time
+import math
+
+
+                                                                               
+                                       
+                                                                               
+
+C = {
+                 
+    "bg":        "#F7F6F2",                                   
+    "bg2":       "#FFFFFF",                               
+    "bg3":       "#F0EEE9",                            
+    "bg4":       "#E8E6E0",                         
+
+                          
+    "border":    "#D8D5CE",                  
+    "sep":       "#E2DFD8",                      
+
+                                  
+    "accent":    "#185FA5",                    
+    "accent2":   "#0F6E56",                    
+    "success":   "#2D6A1F",                    
+    "warning":   "#854F0B",                     
+    "danger":    "#A32D2D",                
+    "comm":      "#534AB7",                                 
+
+          
+    "text":      "#1A1A1A",                 
+    "muted":     "#6B6B6B",                      
+    "hint":      "#9A9A9A",                       
+
+                        
+    "menu_sel":  "#EBF3FC",                                      
+    "menu_hover":"#F3F1EC",                         
+    "splash_bg": "#0A0F1A",                                   
+}
+
+                                                                              
+                                                                           
+                                                                             
+                                                                  
+
+import tkinter.font as tkfont
+
+                             
+_REF_W = 1400
+_REF_H = 900
+_MIN_SCALE = 0.65                                    
+_MAX_SCALE = 1.80                           
+
+                                          
+_BASE = {
+    "title":      22,
+    "head":       15,
+    "subh":       13,
+    "body":       12,
+    "mono":       12,
+    "menu":       13,
+    "small":      11,
+    "small_mono": 11,
+}
+
+class _FontManager:
+    """
+    Holds live tk.font.Font objects.  Call scale(w, h) on window resize
+    and every widget that references these fonts updates automatically.
+    """
+    def __init__(self):
+        self._fonts: dict[str, tkfont.Font] = {}
+        self._ready = False
+
+    def _init(self):
+        """Deferred init — call after tk root exists."""
+        if self._ready:
+            return
+        specs = {
+            "title":      ("DM Sans",  _BASE["title"],      "bold"),
+            "head":       ("DM Sans",  _BASE["head"],       "bold"),
+            "subh":       ("DM Sans",  _BASE["subh"],       "bold"),
+            "body":       ("DM Sans",  _BASE["body"],       "normal"),
+            "mono":       ("DM Mono",  _BASE["mono"],       "normal"),
+            "menu":       ("DM Sans",  _BASE["menu"],       "bold"),
+            "small":      ("DM Sans",  _BASE["small"],      "normal"),
+            "small_mono": ("DM Mono",  _BASE["small_mono"], "normal"),
+        }
+        for key, (fam, size, weight) in specs.items():
+            self._fonts[key] = tkfont.Font(family=fam, size=size, weight=weight)
+        self._ready = True
+
+    def scale(self, win_w: int, win_h: int):
+        if not self._ready:
+            self._init()
+                                                                        
+        ratio = min(win_w / _REF_W, win_h / _REF_H)
+        ratio = max(_MIN_SCALE, min(_MAX_SCALE, ratio))
+        for key, font in self._fonts.items():
+            new_size = max(9, round(_BASE[key] * ratio))
+            font.configure(size=new_size)
+
+                                              
+    def __getattr__(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        if not self._ready:
+            self._init()
+        if name in self._fonts:
+            return self._fonts[name]
+        raise AttributeError(f"FontManager has no font '{name}'")
+
+FM = _FontManager()
+
+
+
+
+
+
+                                                                               
+         
+                                                                               
+
+def _label(parent, text=None, font=None, fg=None, bg=None, **kw):
+    if font is None: font = FM.body
+    return tk.Label(
+        parent, font=font,
+        fg=fg or C["text"], bg=bg or C["bg2"],
+        **({} if text is None else {"text": text}),
+        **kw
+    )
+
+
+def _frame(parent, bg=None, **kw):
+    return tk.Frame(parent, bg=bg or C["bg2"], **kw)
+
+
+class _Frame(tk.Frame):
+    """Base frame with the default light background, used as a panel superclass."""
+    def __init__(self, parent, bg=None, **kw):
+        super().__init__(parent, bg=bg or C["bg2"], **kw)
+
+
+def _sep(parent, bg=None):
+    return tk.Frame(parent, bg=bg or C["sep"], height=1)
+
+
+def _card(parent, **kw):
+    """A light card with a subtle border."""
+    f = tk.Frame(parent, bg=C["bg2"],
+                 highlightbackground=C["border"],
+                 highlightthickness=1, **kw)
+    return f
+
+
+def _entry(parent, width=22, accent=None, **kw):
+    """Styled entry widget."""
+    return tk.Entry(
+        parent, width=width, font=FM.mono,
+        bg=C["bg3"], fg=C["text"],
+        insertbackground=accent or C["accent"],
+        relief="flat",
+        highlightbackground=C["border"],
+        highlightthickness=1,
+        **kw,
+    )
+
+
+def _button(parent, text, accent=None, fg=None, command=None, **kw):
+    """Flat button with accent colour."""
+    ac = accent or C["accent"]
+    return tk.Button(
+        parent, text=text, font=FM.small,
+        bg=ac, fg=fg or C["bg2"],
+        activebackground=ac, activeforeground=C["bg2"],
+        relief="flat", cursor="hand2",
+        command=command, **kw,
+    )
+
+
+def _ghost_button(parent, text, accent=None, command=None, **kw):
+    """Outlined ghost button."""
+    ac = accent or C["accent"]
+    return tk.Button(
+        parent, text=text, font=FM.small,
+        bg=C["bg2"], fg=ac,
+        activebackground=C["bg3"], activeforeground=ac,
+        relief="flat", cursor="hand2",
+        highlightbackground=C["border"], highlightthickness=1,
+        command=command, **kw,
+    )
+
+
+                                                                               
+                                                         
+                                                                               
+
+class SplashScreen(tk.Toplevel):
+    DURATION_MS = 3200
+    BAR_STEPS   = 100
+
+    def __init__(self, master):
+        super().__init__(master)
+        self.overrideredirect(True)
+        self.configure(bg=C["splash_bg"])
+        self.attributes("-topmost", True)
+
+        w, h = 520, 340
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        self.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+
+        self._build_ui(w, h)
+        self._start_progress()
+
+    def _build_ui(self, w, h):
+        self.canvas = tk.Canvas(self, width=w, height=h,
+                                bg=C["splash_bg"], highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
+        self._draw_logo(w, h)
+
+        self.canvas.create_text(w // 2, 200, text="QNEST",
+            font=("DM Sans", 36, "bold"), fill=C["accent"])
+        self.canvas.create_text(w // 2, 238,
+            text="Qauntum Network End-to-end Simulation Toolkit",
+            font=("DM Sans", 12), fill="#8899AA")
+
+        bar_x, bar_y, bar_w, bar_h = 80, 288, w - 160, 7
+        self.canvas.create_rectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h,
+            fill="#1E2535", outline="#2A3347")
+        self._bar_x   = bar_x
+        self._bar_y   = bar_y
+        self._bar_w   = bar_w
+        self._bar_h   = bar_h
+        self._bar_fill = self.canvas.create_rectangle(
+            bar_x, bar_y, bar_x, bar_y + bar_h, fill=C["accent"], outline="")
+        self._status_id = self.canvas.create_text(w // 2, 310,
+            text="Initialising…", font=("DM Sans", 10), fill="#8899AA")
+
+    def _draw_logo(self, w, h):
+        cx, cy, r = w // 2, 115, 48
+        self.canvas.create_oval(cx-r, cy-r, cx+r, cy+r, outline=C["accent"], width=2)
+        ir = r * 0.55
+        self.canvas.create_oval(cx-ir, cy-ir, cx+ir, cy+ir, outline="#534AB7", width=1)
+        dot_r = 5
+        for deg in (90, 210, 330):
+            rad = math.radians(deg)
+            dx  = cx + r * math.cos(rad)
+            dy  = cy - r * math.sin(rad)
+            self.canvas.create_oval(dx-dot_r, dy-dot_r, dx+dot_r, dy+dot_r,
+                fill=C["accent"], outline="")
+            self.canvas.create_line(cx, cy, dx, dy, fill="#2A3347", width=1)
+        self.canvas.create_oval(cx-6, cy-6, cx+6, cy+6, fill="#534AB7", outline="")
+
+    _MESSAGES = [
+        "Loading circuit engine…",
+        "Initialising network layer…",
+        "Preparing compiler…",
+        "Building scheduler…",
+        "Almost ready…",
+    ]
+
+    def _start_progress(self):
+        self._step = 0
+        self._tick()
+
+    def _tick(self):
+        if self._step > self.BAR_STEPS:
+            self._finish()
+            return
+        pct    = self._step / self.BAR_STEPS
+        fill_w = int(self._bar_w * pct)
+        self.canvas.coords(self._bar_fill,
+            self._bar_x, self._bar_y,
+            self._bar_x + fill_w, self._bar_y + self._bar_h)
+        msg_idx = min(int(pct * len(self._MESSAGES)), len(self._MESSAGES) - 1)
+        self.canvas.itemconfig(self._status_id, text=self._MESSAGES[msg_idx])
+        self._step += 1
+        self.after(self.DURATION_MS // self.BAR_STEPS, self._tick)
+
+    def _finish(self):
+        self.destroy()
+        self.master.deiconify()
+
+
+                                                                               
+                                              
+                                                                               
+
+def _panel_header(parent, title, subtitle, accent):
+    """Renders the standard panel header bar."""
+    hdr = _frame(parent, bg=C["bg2"])
+    hdr.pack(fill="x", padx=0, pady=0)
+
+                        
+    stripe = tk.Frame(hdr, bg=accent, width=4)
+    stripe.pack(side="left", fill="y")
+
+    inner = _frame(hdr, bg=C["bg2"])
+    inner.pack(side="left", fill="x", expand=True, padx=20, pady=16)
+
+    tk.Label(inner, text=title, font=FM.title,
+             fg=accent, bg=C["bg2"]).pack(anchor="w")
+    tk.Label(inner, text=subtitle, font=FM.body,
+             fg=C["muted"], bg=C["bg2"]).pack(anchor="w", pady=(2, 0))
+
+    _sep(parent, bg=C["sep"]).pack(fill="x")
+
+
+def _section_label(parent, text, accent, bg=None):
+    tk.Label(parent, text=text, font=FM.subh,
+             fg=accent, bg=bg or C["bg2"]).pack(anchor="w", padx=28, pady=(16, 4))
+
+
+                                                                               
+              
+                                                                               
+
+class CircuitPanel(_Frame):
+    SCALABLE = [
+        "Amplitude Estimation (AE)", "Deutsch-Jozsa", "Graph State",
+        "GHZ State", "Grover's (no ancilla)", "Grover's (v-chain)",
+        "Portfolio Optimization with QAOA", "Portfolio Optimization with VQE",
+        "Quantum Approximation Optimization Algorithm (QAOA)",
+        "Quantum Fourier Transformation (QFT)", "QFT Entangled",
+        "Quantum Neural Network (QNN)",
+        "Quantum Phase Estimation (QPE) exact",
+        "Quantum Phase Estimation (QPE) inexact",
+        "Quantum Walk (no ancilla)", "Quantum Walk (v-chain)",
+        "Random Circuit", "Variational Quantum Eigensolver (VQE)",
+        "Efficient SU2 ansatz with Random Parameters",
+        "Real Amplitudes ansatz with Random Parameters",
+        "Two Local ansatz with Random Parameters", "W-State",
+    ]
+    NON_SCALABLE = [
+        "Ground State", "Pricing Call Option", "Pricing Put Option",
+        "Routing", "Shor's", "Travelling Salesman",
+    ]
+    NATIVE_GATE_SETS = [
+        ('IBM',         '["rz", "sx", "x", "cx"]'),
+        ('Rigetti',     '["rx", "rz", "cz", "cp", "xx_plus_yy"]'),
+        ('OQC',         '["rz", "sx", "x", "ecr"]'),
+        ('IonQ',        '["rxx", "rz", "ry", "rx"]'),
+        ('Quantinuum',  '["rzz", "rz", "ry", "rx"]'),
+    ]
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._active_tab = tk.StringVar(value="Import")
+        self._tab_frames: dict[str, tk.Frame] = {}
+        self._build()
+
+    def _build(self):
+        _panel_header(self,
+            "◈  Circuit",
+            "Import a circuit, generate one via MQT Bench, or edit QASM directly.",
+            C["accent"])
+
+                 
+        tab_bar = _frame(self, bg=C["bg3"])
+        tab_bar.pack(fill="x")
+        for name in ("Import", "MQT Bench", "QASM Editor"):
+            btn = tk.Label(tab_bar, text=name, font=FM.menu,
+                fg=C["muted"], bg=C["bg3"], padx=20, pady=10, cursor="hand2")
+            btn.pack(side="left")
+            btn.bind("<Button-1>", lambda e, n=name: self._switch_tab(n))
+            setattr(self, f"_tab_btn_{name.replace(' ','_')}", btn)
+        _sep(self, bg=C["sep"]).pack(fill="x")
+
+        container = _frame(self)
+        container.pack(fill="both", expand=True)
+        for name, builder in [
+            ("Import",      self._build_import),
+            ("MQT Bench",   self._build_mqt),
+            ("QASM Editor", self._build_editor),
+        ]:
+            f = _frame(container)
+            f.place(relx=0, rely=0, relwidth=1, relheight=1)
+            builder(f)
+            self._tab_frames[name] = f
+
+        self._switch_tab("Import")
+
+    def _switch_tab(self, name: str):
+        for n in ("Import", "MQT Bench", "QASM Editor"):
+            btn = getattr(self, f"_tab_btn_{n.replace(' ','_')}")
+            btn.config(
+                fg=C["accent"] if n == name else C["muted"],
+                bg=C["bg2"] if n == name else C["bg3"],
+            )
+        self._tab_frames[name].lift()
+        self._active_tab.set(name)
+
+                                                                               
+    def _build_import(self, parent):
+        _section_label(parent, "Import Circuit File", C["accent"])
+        _label(parent, "Load an existing QASM or Python circuit file.",
+               fg=C["muted"]).pack(anchor="w", padx=28, pady=(0, 12))
+
+        row = _frame(parent)
+        row.pack(fill="x", padx=28, pady=(0, 14))
+        self._import_path = tk.StringVar(value="No file selected")
+        _label(row, "File:", width=6, anchor="w").pack(side="left")
+        _label(row, textvariable=self._import_path, fg=C["muted"],
+               bg=C["bg3"], padx=10, pady=5, width=50, anchor="w",
+               font=FM.mono).pack(side="left", padx=(0, 10))
+        _ghost_button(parent=row, text="Browse…", accent=C["accent"],
+                      command=self._browse_import, padx=12, pady=5).pack(side="left")
+
+                    
+        cards_row = _frame(parent)
+        cards_row.pack(fill="x", padx=28, pady=(0, 18))
+        self._stat_vars = {}
+        for lbl in ("Qubits", "Gates", "Depth", "CX count"):
+            c = _card(cards_row, padx=18, pady=12)
+            c.pack(side="left", padx=(0, 10))
+            v = tk.StringVar(value="—")
+            self._stat_vars[lbl] = v
+            tk.Label(c, textvariable=v, font=FM.title,
+                     fg=C["accent"], bg=C["bg2"]).pack()
+            tk.Label(c, text=lbl, font=FM.small,
+                     fg=C["muted"], bg=C["bg2"]).pack()
+
+        _sep(parent).pack(fill="x", padx=28, pady=(0, 12))
+        _label(parent, "Preview:", font=FM.subh, fg=C["text"]).pack(anchor="w", padx=28, pady=(0, 4))
+        self._import_preview = scrolledtext.ScrolledText(
+            parent, font=FM.mono, bg=C["bg3"], fg=C["text"],
+            insertbackground=C["accent"], relief="flat",
+            height=16, padx=10, pady=8, state="disabled",
+        )
+        self._import_preview.pack(fill="both", expand=True, padx=28, pady=(0, 16))
+
+    def _browse_import(self):
+        path = filedialog.askopenfilename(
+            filetypes=[("QASM files", "*.qasm"), ("Python files", "*.py"),
+                       ("All files", "*.*")])
+        if not path:
+            return
+        self._import_path.set(path)
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                content = fh.read()
+            self._import_preview.config(state="normal")
+            self._import_preview.delete("1.0", "end")
+            self._import_preview.insert("1.0", content)
+            self._import_preview.config(state="disabled")
+            self._editor_text.config(state="normal")
+            self._editor_text.delete("1.0", "end")
+            self._editor_text.insert("1.0", content)
+        except Exception as exc:
+            messagebox.showerror("Load error", str(exc))
+
+                                                                               
+    def _build_mqt(self, parent):
+        canvas = tk.Canvas(parent, bg=C["bg2"], highlightthickness=0)
+        vsb = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        inner = _frame(canvas)
+        win_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_configure(e): canvas.configure(scrollregion=canvas.bbox("all"))
+        def _on_resize(e): canvas.itemconfig(win_id, width=e.width)
+        inner.bind("<Configure>", _on_configure)
+        canvas.bind("<Configure>", _on_resize)
+        canvas.bind_all("<MouseWheel>",
+                        lambda e: canvas.yview_scroll(-1*(e.delta//120), "units"))
+
+        P = 28
+
+        _section_label(inner, "MQT Bench — Benchmark Selection", C["accent"])
+        _label(inner, "Generate standard benchmark circuits via the mqt-bench package.",
+               fg=C["muted"]).pack(anchor="w", padx=P, pady=(0, 12))
+        _sep(inner).pack(fill="x", padx=P, pady=(0, 14))
+
+                             
+        _label(inner, "Scalable Benchmarks", font=FM.subh, fg=C["text"]).pack(anchor="w", padx=P, pady=(0, 4))
+        _label(inner, "The number of qubits for the following benchmarks is adjustable.",
+               fg=C["muted"], font=FM.small).pack(anchor="w", padx=P, pady=(0, 6))
+
+        self._sel_all_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(inner, text="Select all scalable benchmarks",
+                       variable=self._sel_all_var, font=FM.small,
+                       bg=C["bg2"], fg=C["text"], selectcolor=C["bg3"],
+                       activebackground=C["bg2"],
+                       command=self._toggle_all_scalable).pack(anchor="w", padx=P, pady=(0, 6))
+
+        scal_grid = _frame(inner)
+        scal_grid.pack(fill="x", padx=P, pady=(0, 10))
+        self._scal_vars: dict[str, tk.BooleanVar] = {}
+        for i, name in enumerate(self.SCALABLE):
+            v = tk.BooleanVar(value=False)
+            self._scal_vars[name] = v
+            tk.Checkbutton(scal_grid, text=name, variable=v,
+                           font=FM.small, bg=C["bg2"], fg=C["text"],
+                           selectcolor=C["bg3"], activebackground=C["bg2"],
+                           wraplength=340, justify="left", anchor="w",
+                           ).grid(row=i//2, column=i%2, sticky="w", padx=(0,20), pady=2)
+
+        qr_row = _frame(inner)
+        qr_row.pack(fill="x", padx=P, pady=(4, 14))
+        _label(qr_row, "Qubit range — min:").pack(side="left")
+        self._q_min = tk.IntVar(value=2)
+        tk.Spinbox(qr_row, from_=2, to=128, textvariable=self._q_min,
+                   width=5, font=FM.mono, bg=C["bg3"], fg=C["text"],
+                   relief="flat").pack(side="left", padx=(4, 16))
+        _label(qr_row, "max:").pack(side="left")
+        self._q_max = tk.IntVar(value=10)
+        tk.Spinbox(qr_row, from_=2, to=128, textvariable=self._q_max,
+                   width=5, font=FM.mono, bg=C["bg3"], fg=C["text"],
+                   relief="flat").pack(side="left", padx=4)
+
+        _sep(inner).pack(fill="x", padx=P, pady=(0, 12))
+
+        _label(inner, "Non-Scalable Benchmarks", font=FM.subh, fg=C["text"]).pack(anchor="w", padx=P, pady=(0, 4))
+        _label(inner, "The number of qubits for the following benchmarks is fixed.",
+               fg=C["muted"], font=FM.small).pack(anchor="w", padx=P, pady=(0, 6))
+        ns_grid = _frame(inner)
+        ns_grid.pack(fill="x", padx=P, pady=(0, 10))
+        self._ns_vars: dict[str, tk.BooleanVar] = {}
+        for i, name in enumerate(self.NON_SCALABLE):
+            v = tk.BooleanVar(value=False)
+            self._ns_vars[name] = v
+            tk.Checkbutton(ns_grid, text=name, variable=v,
+                           font=FM.small, bg=C["bg2"], fg=C["text"],
+                           selectcolor=C["bg3"], activebackground=C["bg2"],
+                           anchor="w").grid(row=i//3, column=i%3, sticky="w", padx=(0,20), pady=2)
+
+        _sep(inner).pack(fill="x", padx=P, pady=(6, 14))
+
+                           
+        _label(inner, "Abstraction Level Selection", font=FM.subh, fg=C["text"]).pack(anchor="w", padx=P, pady=(0, 6))
+        self._level_var = tk.StringVar(value="target_dependent_mapped")
+        levels = [
+            ("target_independent",       "Target-independent Level"),
+            ("target_dependent_native",  "Target-dependent Native Gates Level"),
+            ("target_dependent_mapped",  "Target-dependent Mapped Level  ✦ (required)"),
+        ]
+        for val, lbl in levels:
+            tk.Radiobutton(inner, text=lbl, variable=self._level_var, value=val,
+                           font=FM.small, bg=C["bg2"], fg=C["text"],
+                           selectcolor=C["bg3"], activebackground=C["bg2"],
+                           command=self._refresh_level_opts).pack(anchor="w", padx=P+8, pady=2)
+
+        self._level_opts_frame = _frame(inner)
+        self._level_opts_frame.pack(fill="x", padx=P+16, pady=(6, 0))
+        self._refresh_level_opts()
+
+        _sep(inner).pack(fill="x", padx=P, pady=(14, 14))
+
+        btn_row = _frame(inner)
+        btn_row.pack(fill="x", padx=P, pady=(0, 8))
+        _button(btn_row, "▶  Generate QASM", accent=C["accent"],
+                command=self._generate_mqt, padx=18, pady=7).pack(side="left")
+        self._mqt_status = _label(btn_row, "", fg=C["muted"])
+        self._mqt_status.pack(side="left", padx=16)
+
+        self._mqt_log = scrolledtext.ScrolledText(
+            inner, font=FM.mono, bg=C["bg3"], fg=C["text"],
+            relief="flat", height=6, padx=10, pady=8, state="disabled",
+        )
+        self._mqt_log.pack(fill="x", padx=P, pady=(0, 20))
+
+    def _refresh_level_opts(self):
+        for w in self._level_opts_frame.winfo_children():
+            w.destroy()
+        level = self._level_var.get()
+        if level == "target_independent":
+            self._build_compiler_choice(self._level_opts_frame, "_ti_compiler")
+        elif level == "target_dependent_native":
+            _label(self._level_opts_frame, "Select targeted native gate-set:",
+                   font=FM.small, fg=C["text"]).pack(anchor="w", pady=(0, 4))
+            self._native_gs = tk.StringVar(value="IBM")
+            for short, gates in self.NATIVE_GATE_SETS:
+                tk.Radiobutton(self._level_opts_frame, text=f"{short}   {gates}",
+                               variable=self._native_gs, value=short,
+                               font=FM.small_mono, bg=C["bg2"], fg=C["text"],
+                               selectcolor=C["bg3"], activebackground=C["bg2"],
+                               ).pack(anchor="w", padx=8, pady=1)
+            _sep(self._level_opts_frame).pack(fill="x", pady=(6, 6))
+            self._build_compiler_choice(self._level_opts_frame, "_tdn_compiler")
+        elif level == "target_dependent_mapped":
+            self._build_compiler_choice(self._level_opts_frame, "_tdm_compiler", show_opt=True)
+
+    def _build_compiler_choice(self, parent, attr: str, show_opt: bool = False):
+        _label(parent, "Select the used compiler:", font=FM.small, fg=C["text"]).pack(anchor="w", pady=(0, 4))
+        var = tk.StringVar(value="Qiskit")
+        setattr(self, attr, var)
+        row = _frame(parent)
+        row.pack(anchor="w")
+        for compiler in ("Qiskit", "TKET"):
+            tk.Radiobutton(row, text=compiler, variable=var, value=compiler,
+                           font=FM.small, bg=C["bg2"], fg=C["text"],
+                           selectcolor=C["bg3"], activebackground=C["bg2"],
+                           command=lambda: self._refresh_compiler_sub(parent, attr, show_opt)
+                           ).pack(side="left", padx=(0, 16))
+        self._compiler_sub_frame = _frame(parent)
+        self._compiler_sub_frame.pack(anchor="w", padx=8)
+        self._refresh_compiler_sub(parent, attr, show_opt)
+
+    def _refresh_compiler_sub(self, parent, attr: str, show_opt: bool):
+        for w in self._compiler_sub_frame.winfo_children():
+            w.destroy()
+        compiler = getattr(self, attr, None)
+        if compiler is None:
+            return
+        val = compiler.get()
+        if val == "Qiskit" and show_opt:
+            _label(self._compiler_sub_frame, "Optimization level:", font=FM.small, fg=C["text"]).pack(anchor="w", pady=(6, 2))
+            self._qiskit_opt = tk.IntVar(value=1)
+            opt_row = _frame(self._compiler_sub_frame)
+            opt_row.pack(anchor="w")
+            for lvl in (0, 1, 2, 3):
+                tk.Radiobutton(opt_row, text=f"Opt. {lvl}", variable=self._qiskit_opt, value=lvl,
+                               font=FM.small, bg=C["bg2"], fg=C["text"],
+                               selectcolor=C["bg3"], activebackground=C["bg2"]
+                               ).pack(side="left", padx=(0, 12))
+        elif val == "TKET" and show_opt:
+            _label(self._compiler_sub_frame, "Placement setting:", font=FM.small, fg=C["text"]).pack(anchor="w", pady=(6, 2))
+            self._tket_place = tk.StringVar(value="Graph Placement")
+            place_row = _frame(self._compiler_sub_frame)
+            place_row.pack(anchor="w")
+            for p in ("Graph Placement", "Line Placement"):
+                tk.Radiobutton(place_row, text=p, variable=self._tket_place, value=p,
+                               font=FM.small, bg=C["bg2"], fg=C["text"],
+                               selectcolor=C["bg3"], activebackground=C["bg2"]
+                               ).pack(side="left", padx=(0, 16))
+
+    def _toggle_all_scalable(self):
+        val = self._sel_all_var.get()
+        for v in self._scal_vars.values():
+            v.set(val)
+
+    def _generate_mqt(self):
+        selected_s  = [n for n, v in self._scal_vars.items() if v.get()]
+        selected_ns = [n for n, v in self._ns_vars.items() if v.get()]
+        if not selected_s and not selected_ns:
+            messagebox.showwarning("MQT Bench", "Please select at least one benchmark.")
+            return
+        self._mqt_log.config(state="normal")
+        self._mqt_log.delete("1.0", "end")
+        self._mqt_log.config(state="disabled")
+        self._mqt_status.config(text="Generating…", fg=C["warning"])
+        level = self._level_var.get()
+        q_min = self._q_min.get()
+        q_max = self._q_max.get()
+
+        def _log(msg):
+            self._mqt_log.after(0, lambda m=msg: (
+                self._mqt_log.config(state="normal"),
+                self._mqt_log.insert("end", m + "\n"),
+                self._mqt_log.see("end"),
+                self._mqt_log.config(state="disabled"),
+            ))
+
+        def _worker():
+            try:
+                from mqt.bench import get_benchmark                
+            except ImportError:
+                _log("[ERROR] mqt-bench is not installed.  Run:  pip install mqt.bench")
+                self._mqt_status.after(0, lambda: self._mqt_status.config(
+                    text="mqt-bench not found", fg=C["danger"]))
+                return
+            qasm_out = []
+            for bench in selected_s + selected_ns:
+                qubit_range = range(q_min, q_max+1) if bench in self.SCALABLE else [None]
+                for nq in qubit_range:
+                    try:
+                        kwargs = {"level": level}
+                        if nq is not None:
+                            kwargs["num_qubits"] = nq
+                        qc   = get_benchmark(bench, **kwargs)
+                        qasm = qc.qasm() if hasattr(qc, "qasm") else str(qc)
+                        qasm_out.append(f"// {bench}" + (f"  n={nq}" if nq else "") + "\n" + qasm)
+                        _log(f"[OK]  {bench}" + (f"  n={nq}" if nq else ""))
+                    except Exception as exc:
+                        _log(f"[ERR] {bench}: {exc}")
+            if qasm_out:
+                combined = "\n\n".join(qasm_out)
+                self._editor_text.after(0, lambda: (
+                    self._editor_text.delete("1.0", "end"),
+                    self._editor_text.insert("1.0", combined),
+                ))
+                self._mqt_status.after(0, lambda: self._mqt_status.config(
+                    text=f"✓ {len(qasm_out)} circuit(s) generated → QASM Editor", fg=C["success"]))
+            else:
+                self._mqt_status.after(0, lambda: self._mqt_status.config(
+                    text="No circuits generated.", fg=C["danger"]))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+                                                                               
+    def _build_editor(self, parent):
+        _section_label(parent, "QASM Editor", C["accent"])
+        _label(parent, "Edit or inspect the circuit QASM. Changes here are used by downstream steps.",
+               fg=C["muted"]).pack(anchor="w", padx=28, pady=(0, 10))
+        tb = _frame(parent)
+        tb.pack(fill="x", padx=28, pady=(0, 8))
+        for txt, cmd in [("Save as…", self._save_qasm), ("Clear", self._clear_editor)]:
+            _ghost_button(tb, txt, accent=C["accent"], command=cmd,
+                          padx=10, pady=4).pack(side="left", padx=(0, 8))
+
+        self._editor_text = scrolledtext.ScrolledText(
+            parent, font=FM.mono, bg=C["bg3"], fg=C["text"],
+            insertbackground=C["accent"], relief="flat", padx=10, pady=8,
+        )
+        self._editor_text.pack(fill="both", expand=True, padx=28, pady=(0, 16))
+        self._editor_text.insert("1.0", "// QASM will appear here after import or generation\n")
+
+    def _save_qasm(self):
+        path = filedialog.asksaveasfilename(defaultextension=".qasm",
+            filetypes=[("QASM files", "*.qasm"), ("All files", "*.*")])
+        if path:
+            try:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(self._editor_text.get("1.0", "end"))
+                messagebox.showinfo("Saved", f"QASM saved to:\n{path}")
+            except Exception as exc:
+                messagebox.showerror("Save error", str(exc))
+
+    def _clear_editor(self):
+        self._editor_text.delete("1.0", "end")
+
+
+                                                                               
+                                      
+                                                                               
+
+class NetworkModel:
+    _id_counter = 0
+
+    @classmethod
+    def _new_id(cls, prefix: str) -> str:
+        cls._id_counter += 1
+        return f"{prefix}_{cls._id_counter:03d}"
+
+    def __init__(self):
+        self.nodes: dict[str, dict] = {}
+        self.links: dict[str, dict] = {}
+        self._listeners: list = []
+
+    def subscribe(self, fn):
+        self._listeners.append(fn)
+
+    def _notify(self):
+        for fn in self._listeners:
+            fn()
+
+    def add_node(self, kind: str, x: float = 100, y: float = 100) -> str:
+        nid = self._new_id(kind.lower())
+        defaults = {
+            "QPU":    {"topology": "linear", "noise_model": "None",
+                       "qubits": "5", "T1": "100 µs", "T2": "80 µs",
+                       "gate_error": "0.001", "readout_error": "0.01",
+                       "ibm_backend": "", "n_inputs": 2, "n_outputs": 2},
+            "BS":     {"splitting_ratio": "0.5", "insertion_loss": "0.1 dB",
+                       "bandwidth": "10 GHz", "phase_offset": "0",
+                       "n_inputs": 2, "n_outputs": 2},
+            "PBS":    {"extinction_ratio": "30 dB", "insertion_loss": "0.2 dB",
+                       "bandwidth": "10 GHz", "n_inputs": 2, "n_outputs": 2},
+            "Switch": {"num_bsm": "2", "bsm_efficiency": "0.9",
+                       "bsm_dark_count": "100 Hz", "switching_time": "1 ns",
+                       "n_inputs": 3, "n_outputs": 3},
+            "BSM":    {"efficiency": "0.9", "dark_count": "100 Hz",
+                       "n_inputs": 2, "n_outputs": 1},
+        }.get(kind, {"n_inputs": 2, "n_outputs": 2})
+        self.nodes[nid] = {"id": nid, "kind": kind, "x": x, "y": y,
+                           "label": nid, **defaults}
+        self._notify()
+        return nid
+
+    def add_link(self, src_id: str, dst_id: str) -> str:
+        lid = self._new_id("link")
+        self.links[lid] = {
+            "id": lid, "src": src_id, "dst": dst_id,
+            "src_port": "out1", "dst_port": "in1",
+            "kind": "Fiber", "length": "10", "attenuation": "0.2",
+            "channel": "Amplitude Damping",
+            "gamma": "0.01", "phase": "0.0", "depol_p": "0.01",
+            "n_index": "1.468", "dispersion": "17", "fidelity": "0.99",
+        }
+        self._notify()
+        return lid
+
+    def remove_node(self, nid: str):
+        self.nodes.pop(nid, None)
+        dead = [lid for lid, l in self.links.items()
+                if l["src"] == nid or l["dst"] == nid]
+        for lid in dead:
+            self.links.pop(lid)
+        self._notify()
+
+    def remove_link(self, lid: str):
+        self.links.pop(lid, None)
+        self._notify()
+
+
+                                                                               
+             
+                                                                               
+
+class SpecDialog(tk.Toplevel):
+    _DROPDOWNS = {
+        "channel":     ["Amplitude Damping", "Phase Damping", "Depolarization"],
+        "topology":    ["linear", "grid", "heavy-hex", "custom"],
+        "noise_model": ["None", "IBM Calibration", "General Depolarizing",
+                        "Amplitude+Phase", "Custom"],
+    }
+    _HINTS = {
+        "length": "km", "attenuation": "dB/km", "gamma": "(0-1)",
+        "depol_p": "(0-1)", "fidelity": "(0-1)", "splitting_ratio": "(0-1)",
+        "T1": "µs", "T2": "µs", "gate_error": "(0-1)",
+        "readout_error": "(0-1)", "bandwidth": "GHz",
+        "insertion_loss": "dB", "extinction_ratio": "dB",
+        "num_bsm": "count", "bsm_efficiency": "(0-1)",
+        "bsm_dark_count": "Hz", "switching_time": "ns",
+        "phase": "rad", "dispersion": "ps/nm/km",
+        "n_index": "", "phase_offset": "rad", "qubits": "count",
+        "n_inputs": "count", "n_outputs": "count",
+        "efficiency": "(0-1)", "dark_count": "Hz",
+        "src_port": "", "dst_port": "",
+    }
+
+    def __init__(self, master, obj: dict, title: str):
+        super().__init__(master)
+        self.title(title)
+        self.configure(bg=C["bg"])
+        self.resizable(False, False)
+        self.grab_set()
+        self._obj = obj
+        self._vars: dict[str, tk.StringVar] = {}
+        self._build(obj)
+        self.update_idletasks()
+        mx = master.winfo_rootx() + master.winfo_width()  // 2
+        my = master.winfo_rooty() + master.winfo_height() // 2
+        w, h = self.winfo_width(), self.winfo_height()
+        self.geometry(f"+{mx - w//2}+{my - h//2}")
+
+    def _build(self, obj: dict):
+        tk.Label(self, text=f"  {obj.get('kind', 'Link')}  —  {obj['id']}",
+                 font=FM.head, fg=C["accent"], bg=C["bg"],
+                 anchor="w", padx=12, pady=12).pack(fill="x")
+        _sep(self).pack(fill="x")
+
+        canvas = tk.Canvas(self, bg=C["bg"], highlightthickness=0,
+                           width=440, height=min(400, 60 + 34 * len(obj)))
+        vsb = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        inner = tk.Frame(canvas, bg=C["bg"])
+        win = canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig(win, width=e.width))
+
+        skip = {"id", "kind", "x", "y", "label"}
+        for key, val in obj.items():
+            if key in skip:
+                continue
+            row = tk.Frame(inner, bg=C["bg"])
+            row.pack(fill="x", padx=14, pady=3)
+            hint = self._HINTS.get(key, "")
+            lbl_text = f"{key}" + (f"  [{hint}]" if hint else "")
+            tk.Label(row, text=lbl_text, font=FM.small,
+                     fg=C["muted"], bg=C["bg"], width=26, anchor="w").pack(side="left")
+            var = tk.StringVar(value=str(val))
+            self._vars[key] = var
+            if key in self._DROPDOWNS:
+                om = tk.OptionMenu(row, var, *self._DROPDOWNS[key])
+                om.config(font=FM.small, bg=C["bg3"], fg=C["text"],
+                          activebackground=C["accent"], relief="flat", width=18)
+                om["menu"].config(bg=C["bg3"], fg=C["text"])
+                om.pack(side="left")
+            else:
+                e = tk.Entry(row, textvariable=var, width=22, font=FM.mono,
+                             bg=C["bg3"], fg=C["text"],
+                             insertbackground=C["accent"], relief="flat")
+                e.pack(side="left")
+
+        if obj.get("kind") == "QPU":
+            _sep(inner).pack(fill="x", padx=14, pady=6)
+            tk.Label(inner, text="IBM Calibration — backend name (e.g. ibm_brisbane):",
+                     font=FM.small, fg=C["muted"], bg=C["bg"],
+                     anchor="w", padx=14).pack(fill="x")
+            ibm_row = tk.Frame(inner, bg=C["bg"])
+            ibm_row.pack(fill="x", padx=14, pady=4)
+            ibm_var = self._vars.get("ibm_backend", tk.StringVar())
+            self._vars["ibm_backend"] = ibm_var
+            tk.Entry(ibm_row, textvariable=ibm_var, width=22, font=FM.mono,
+                     bg=C["bg3"], fg=C["text"],
+                     insertbackground=C["accent"], relief="flat").pack(side="left")
+            _ghost_button(ibm_row, "Fetch noise model", accent=C["accent"],
+                          command=self._fetch_ibm, padx=8, pady=3).pack(side="left", padx=8)
+            self._ibm_status = tk.Label(inner, text="", font=FM.small,
+                                        fg=C["muted"], bg=C["bg"])
+            self._ibm_status.pack(anchor="w", padx=14)
+
+        _sep(self).pack(fill="x")
+        btn_row = tk.Frame(self, bg=C["bg"])
+        btn_row.pack(fill="x", padx=14, pady=10)
+        _button(btn_row, "OK", command=self._ok, padx=18, pady=5).pack(side="left", padx=(0, 8))
+        _ghost_button(btn_row, "Cancel", command=self.destroy, padx=14, pady=5).pack(side="left")
+
+    def _ok(self):
+        for key, var in self._vars.items():
+            self._obj[key] = var.get()
+        self.destroy()
+
+    def _fetch_ibm(self):
+        backend = self._vars.get("ibm_backend", tk.StringVar()).get().strip()
+        if not backend:
+            self._ibm_status.config(text="Enter a backend name first.", fg=C["warning"])
+            return
+        self._ibm_status.config(text="Fetching…", fg=C["muted"])
+        def _worker():
+            try:
+                from qiskit_ibm_runtime import QiskitRuntimeService                
+                svc   = QiskitRuntimeService()
+                be    = svc.backend(backend)
+                props = be.properties()
+                noise_str = f"T1={props.t1(0):.1e}, T2={props.t2(0):.1e}"
+                self._vars["noise_model"].set("IBM Calibration")
+                self._vars["ibm_backend"].set(backend)
+                self._ibm_status.after(0, lambda: self._ibm_status.config(
+                    text=f"✓ Loaded: {noise_str}", fg=C["success"]))
+            except Exception as exc:
+                self._ibm_status.after(0, lambda: self._ibm_status.config(
+                    text=f"Error: {exc}", fg=C["danger"]))
+        threading.Thread(target=_worker, daemon=True).start()
+
+
+                                                                               
+                                                    
+                                                                               
+
+class NetworkCanvas(tk.Frame):
+    GRID   = 20
+    NODE_W = 100
+    NODE_H = 64
+    PORT_R = 7
+
+                              
+    KIND_COLOR = {
+        "QPU":    "#185FA5",         
+        "BS":     "#0F6E56",         
+        "PBS":    "#534AB7",           
+        "Switch": "#854F0B",          
+    }
+    KIND_FILL = {
+        "QPU":    "#dceaf7",
+        "BS":     "#d0f0e6",
+        "PBS":    "#e8e6fa",
+        "Switch": "#fae8c8",
+    }
+    KIND_ICON = {
+        "QPU": "⬡", "BS": "◎", "PBS": "◈", "Switch": "⬢",
+    }
+
+    def __init__(self, parent, model: NetworkModel):
+        super().__init__(parent, bg=C["bg"])
+        self._model     = model
+        self._clipboard = None
+
+        hbar = ttk.Scrollbar(self, orient="horizontal")
+        vbar = ttk.Scrollbar(self, orient="vertical")
+        self._cv = tk.Canvas(self, bg="#F9F8F5", highlightthickness=0,
+                             xscrollcommand=hbar.set, yscrollcommand=vbar.set,
+                             scrollregion=(-500, -500, 4000, 3000))
+        hbar.config(command=self._cv.xview)
+        vbar.config(command=self._cv.yview)
+        vbar.pack(side="right",  fill="y")
+        hbar.pack(side="bottom", fill="x")
+        self._cv.pack(fill="both", expand=True)
+
+        self._mode         = "select"
+        self._selected_nid : str | None = None
+        self._selected_lid : str | None = None
+        self._drag_nid     : str | None = None
+        self._drag_start_x = 0
+        self._drag_start_y = 0
+        self._drag_node_ox = 0
+        self._drag_node_oy = 0
+        self._wire_src_nid  : str | None = None
+        self._wire_src_port : str | None = None
+        self._wire_src_px  = 0
+        self._wire_src_py  = 0
+        self._rubber_band  : int | None = None
+        self._node_items   : dict[str, list[int]] = {}
+        self._node_ports   : dict[str, dict[str, tuple]] = {}
+        self._link_items   : dict[str, list[int]] = {}
+
+        self._draw_grid()
+        model.subscribe(self._full_redraw)
+        self._bind_canvas_events()
+
+    def set_mode(self, mode: str):
+        self._mode = mode
+        cursors = {"select": "arrow", "link": "crosshair", "delete": "X_cursor"}
+        self._cv.config(cursor=cursors.get(mode, "arrow"))
+        self._cancel_wire()
+
+    def add_component(self, kind: str):
+        import random
+        cx = self._cv.winfo_width()  // 2 + random.randint(-40, 40)
+        cy = self._cv.winfo_height() // 2 + random.randint(-40, 40)
+        wx = round(int(self._cv.canvasx(cx)) / self.GRID) * self.GRID
+        wy = round(int(self._cv.canvasy(cy)) / self.GRID) * self.GRID
+        self._model.add_node(kind, wx, wy)
+
+    def export_json(self) -> str:
+        import json
+        return json.dumps({"nodes": list(self._model.nodes.values()),
+                           "links": list(self._model.links.values())}, indent=2)
+
+    def import_json(self, data: str):
+        import json
+        obj = json.loads(data)
+        self._model.nodes.clear()
+        self._model.links.clear()
+        for nd in obj.get("nodes", []):
+            self._model.nodes[nd["id"]] = nd
+        for lk in obj.get("links", []):
+            self._model.links[lk["id"]] = lk
+        self._model._notify()
+
+    def _draw_grid(self):
+        for x in range(-500, 4000, self.GRID):
+            self._cv.create_line(x, -500, x, 3000, fill="#EDEBE5", tags="grid")
+        for y in range(-500, 3000, self.GRID):
+            self._cv.create_line(-500, y, 4000, y, fill="#EDEBE5", tags="grid")
+        self._cv.tag_lower("grid")
+
+    def _full_redraw(self):
+        self._cv.delete("node", "link", "port", "portlbl", "linklbl", "shadow")
+        self._node_items.clear()
+        self._node_ports.clear()
+        self._link_items.clear()
+        for lid, lk in self._model.links.items():
+            self._draw_link(lid, lk)
+        for nid, nd in self._model.nodes.items():
+            self._draw_node(nid, nd)
+
+    def _node_port_positions(self, nd: dict) -> dict[str, tuple[int,int]]:
+        x, y  = int(nd["x"]), int(nd["y"])
+        w, h  = self.NODE_W, self.NODE_H
+        n_in  = int(nd.get("n_inputs",  2))
+        n_out = int(nd.get("n_outputs", 2))
+        ports = {}
+        for i in range(n_in):
+            ports[f"in{i+1}"]  = (x,   y + int(h * (i+1)/(n_in+1)))
+        for i in range(n_out):
+            ports[f"out{i+1}"] = (x+w, y + int(h * (i+1)/(n_out+1)))
+        return ports
+
+    def _draw_node(self, nid: str, nd: dict):
+        x, y  = int(nd["x"]), int(nd["y"])
+        w, h  = self.NODE_W, self.NODE_H
+        kind  = nd["kind"]
+        color = self.KIND_COLOR.get(kind, "#888")
+        fill  = self.KIND_FILL.get(kind, "#F0EEE9")
+        icon  = self.KIND_ICON.get(kind, "?")
+        sel   = (nid == self._selected_nid)
+        items = []
+
+                            
+        s = self._cv.create_rectangle(x+3, y+3, x+w+3, y+h+3,
+            fill="#E0DDD8", outline="", tags="shadow")
+        items.append(s)
+
+              
+        body = self._cv.create_rectangle(x, y, x+w, y+h,
+            fill=fill, outline=color if not sel else "#1A1A1A",
+            width=3 if sel else 1.5, tags="node")
+        items.append(body)
+
+                        
+        hdr = self._cv.create_rectangle(x, y, x+w, y+9,
+            fill=color, outline="", tags="node")
+        items.append(hdr)
+
+                     
+        t1 = self._cv.create_text(x+w//2, y+28,
+            text=f"{icon}  {kind}", font=(FM.small.cget("family"), FM.small.cget("size"), "bold"),
+            fill=color, tags="node")
+        items.append(t1)
+
+                  
+        t2 = self._cv.create_text(x+w//2, y+h-10,
+            text=nd.get("label", nid), font=(FM.small_mono.cget("family"), max(8, FM.small_mono.cget("size")-1)),
+            fill=C["muted"], tags="node")
+        items.append(t2)
+
+               
+        port_positions = self._node_port_positions(nd)
+        self._node_ports[nid] = {}
+        r = self.PORT_R
+        for plabel, (px, py) in port_positions.items():
+            side = "left" if plabel.startswith("in") else "right"
+            circ = self._cv.create_oval(px-r, py-r, px+r, py+r,
+                fill="#FFFFFF", outline=color, width=1.5,
+                tags=("node", "port"))
+            items.append(circ)
+            lx     = px-r-3 if side=="left" else px+r+3
+            anchor = "e" if side=="left" else "w"
+            lt = self._cv.create_text(lx, py, text=plabel,
+                font=(FM.small_mono.cget("family"), max(8, FM.small_mono.cget("size")-2)),
+                fill=C["muted"], anchor=anchor, tags=("node", "portlbl"))
+            items.append(lt)
+            self._node_ports[nid][plabel] = (circ, px, py)
+
+                                                                          
+        self._node_items[nid] = items
+
+    def _draw_link(self, lid: str, lk: dict):
+        src_nd = self._model.nodes.get(lk["src"])
+        dst_nd = self._model.nodes.get(lk["dst"])
+        if not src_nd or not dst_nd:
+            return
+        sp = self._node_port_positions(src_nd).get(lk.get("src_port","out1"))
+        dp = self._node_port_positions(dst_nd).get(lk.get("dst_port","in1"))
+        if sp is None: sp = (int(src_nd["x"])+self.NODE_W, int(src_nd["y"])+self.NODE_H//2)
+        if dp is None: dp = (int(dst_nd["x"]),             int(dst_nd["y"])+self.NODE_H//2)
+        x1, y1 = sp
+        x2, y2 = dp
+        ctrl_d = max(60, abs(x2-x1)//2)
+        sel    = (lid == self._selected_lid)
+        color  = C["accent"] if sel else C["muted"]
+        width  = 2.5 if sel else 1.5
+        line   = self._cv.create_line(
+            x1, y1, x1+ctrl_d, y1, x2-ctrl_d, y2, x2, y2,
+            smooth=True, width=width, fill=color,
+            dash=(6, 3), tags="link", arrow="last", arrowshape=(10,12,4))
+        mid = self._cv.create_text((x1+x2)//2, (y1+y2)//2-12,
+            text=f"{lid}  [{lk.get('channel','Fiber')}]",
+            font=(FM.small_mono.cget("family"), max(8, FM.small_mono.cget("size")-1)), fill=C["muted"], tags=("link","linklbl"))
+        self._link_items[lid] = [line, mid]
+                                                                               
+
+                                                                                
+
+    PORT_HIT_R = 20                                       
+
+    def _find_port_at(self, cx: float, cy: float) -> tuple[str, str, int, int] | None:
+        """
+        Return (nid, port_label, px, py) for the nearest port within
+        PORT_HIT_R canvas pixels of (cx, cy), or None.
+        """
+        best = None
+        best_d = float("inf")
+        for nid, ports in self._node_ports.items():
+            for plabel, (_circ, px, py) in ports.items():
+                d = ((cx - px) ** 2 + (cy - py) ** 2) ** 0.5
+                if d < self.PORT_HIT_R and d < best_d:
+                    best_d = d
+                    best = (nid, plabel, px, py)
+        return best
+
+    def _find_node_at(self, cx: float, cy: float) -> str | None:
+        """Return nid whose bounding box contains (cx, cy), or None."""
+        for nid, nd in self._model.nodes.items():
+            x, y = int(nd["x"]), int(nd["y"])
+            if x <= cx <= x + self.NODE_W and y <= cy <= y + self.NODE_H:
+                return nid
+        return None
+
+    def _find_link_near(self, cx: float, cy: float) -> str | None:
+        """Return lid whose canvas line is within ~6px of (cx, cy), or None."""
+        for lid, items in self._link_items.items():
+            if not items:
+                continue
+            line_item = items[0]
+            try:
+                coords = self._cv.coords(line_item)
+                                                              
+                for i in range(0, len(coords) - 1, 2):
+                    lx, ly = coords[i], coords[i + 1]
+                    if ((cx - lx) ** 2 + (cy - ly) ** 2) ** 0.5 < 10:
+                        return lid
+            except Exception:
+                pass
+        return None
+
+                                                                                
+
+    def _on_canvas_press(self, e):
+        """Single handler for all left-clicks — routes to port/node/link/empty."""
+        self._cv.focus_set()
+        cx = self._cv.canvasx(e.x)
+        cy = self._cv.canvasy(e.y)
+
+                                                          
+        port_hit = self._find_port_at(cx, cy)
+        if port_hit:
+            self._handle_port_click(*port_hit)
+            return
+
+                                      
+        nid = self._find_node_at(cx, cy)
+        if nid:
+            self._handle_node_click(e, nid, cx, cy)
+            return
+
+                                 
+        lid = self._find_link_near(cx, cy)
+        if lid:
+            self._handle_link_click(lid)
+            return
+
+                                                            
+        if self._wire_src_nid is not None:
+            self._cancel_wire()
+        else:
+            self._selected_nid = None
+            self._selected_lid = None
+
+    def _handle_port_click(self, nid: str, plabel: str, px: int, py: int):
+        if self._mode == "delete":
+            return                            
+
+        if self._wire_src_nid is None:
+                        
+            self._wire_src_nid  = nid
+            self._wire_src_port = plabel
+            self._wire_src_px   = px
+            self._wire_src_py   = py
+                                   
+            circ_info = self._node_ports.get(nid, {}).get(plabel)
+            if circ_info:
+                self._cv.itemconfig(circ_info[0],
+                                    fill=C["warning"], outline=C["warning"])
+        else:
+                           
+            self._complete_wire(nid, plabel)
+
+    def _handle_node_click(self, e, nid: str, cx: float, cy: float):
+        if self._mode == "delete":
+            self._model.remove_node(nid)
+            return
+
+                                                                      
+        if self._wire_src_nid is not None:
+            self._cancel_wire()
+            return
+
+        prev = self._selected_nid
+        self._selected_nid = nid
+        self._selected_lid = None
+        if prev != nid:
+            self._full_redraw()
+
+        nd = self._model.nodes[nid]
+        self._drag_nid     = nid
+        self._drag_start_x = cx
+        self._drag_start_y = cy
+        self._drag_node_ox = nd["x"]
+        self._drag_node_oy = nd["y"]
+        for item in self._node_items.get(nid, []):
+            self._cv.tag_raise(item)
+
+    def _handle_link_click(self, lid: str):
+        if self._mode == "delete":
+            self._model.remove_link(lid)
+            return
+        self._selected_lid = lid
+        self._selected_nid = None
+        self._full_redraw()
+
+    def _complete_wire(self, dst_nid: str, dst_port: str):
+        if self._wire_src_nid is None:
+            return
+        if dst_nid != self._wire_src_nid:
+            lid = self._model.add_link(self._wire_src_nid, dst_nid)
+            lk  = self._model.links[lid]
+            lk["src_port"] = self._wire_src_port
+            lk["dst_port"] = dst_port
+        self._wire_src_nid  = None
+        self._wire_src_port = None
+        if self._rubber_band is not None:
+            self._cv.delete(self._rubber_band)
+            self._rubber_band = None
+        self._full_redraw()
+
+    def _cancel_wire(self):
+        was_active = self._wire_src_nid is not None
+        self._wire_src_nid  = None
+        self._wire_src_port = None
+        if self._rubber_band is not None:
+            self._cv.delete(self._rubber_band)
+            self._rubber_band = None
+        if was_active:
+            self._full_redraw()
+
+    def _bind_canvas_events(self):
+        cv = self._cv
+                                                        
+        cv.bind("<ButtonPress-1>",   self._on_canvas_press)
+        cv.bind("<B1-Motion>",       self._on_canvas_drag)
+        cv.bind("<ButtonRelease-1>", self._on_canvas_release)
+        cv.bind("<Double-Button-1>", self._on_canvas_double)
+        cv.bind("<Button-3>",        self._on_canvas_right)
+        cv.bind("<ButtonPress-2>",   self._pan_start)
+        cv.bind("<B2-Motion>",       self._pan_move)
+        cv.bind("<MouseWheel>",      self._on_mousewheel)
+        cv.bind("<Button-4>",        lambda e: cv.yview_scroll(-1, "units"))
+        cv.bind("<Button-5>",        lambda e: cv.yview_scroll( 1, "units"))
+        cv.bind("<Motion>",          self._on_mouse_move)
+        cv.bind("<Delete>",          lambda e: self._delete_selected())
+        cv.bind("<BackSpace>",       lambda e: self._delete_selected())
+        cv.bind("<Escape>",          lambda e: self._cancel_wire())
+        cv.bind("<Control-c>",       lambda e: self._copy())
+        cv.bind("<Control-x>",       lambda e: self._cut())
+        cv.bind("<Control-v>",       lambda e: self._paste())
+        cv.focus_set()
+
+    def _on_canvas_drag(self, e):
+        if self._drag_nid is None:
+            return
+        nid = self._drag_nid
+        cx  = self._cv.canvasx(e.x)
+        cy  = self._cv.canvasy(e.y)
+        dx  = cx - self._drag_start_x
+        dy  = cy - self._drag_start_y
+        new_x = round((self._drag_node_ox + dx) / self.GRID) * self.GRID
+        new_y = round((self._drag_node_oy + dy) / self.GRID) * self.GRID
+        nd    = self._model.nodes[nid]
+        move_dx = new_x - nd["x"]
+        move_dy = new_y - nd["y"]
+        if move_dx == 0 and move_dy == 0:
+            return
+        nd["x"], nd["y"] = new_x, new_y
+        for item in self._node_items.get(nid, []):
+            self._cv.move(item, move_dx, move_dy)
+        for plabel, (circ, px, py) in self._node_ports.get(nid, {}).items():
+            self._node_ports[nid][plabel] = (circ, px + move_dx, py + move_dy)
+        for lid in [l for l, lk in self._model.links.items()
+                    if lk["src"] == nid or lk["dst"] == nid]:
+            for item in self._link_items.get(lid, []):
+                self._cv.delete(item)
+            self._link_items.pop(lid, None)
+            self._draw_link(lid, self._model.links[lid])
+
+    def _on_canvas_release(self, e):
+        self._drag_nid = None
+
+    def _on_canvas_double(self, e):
+        cx = self._cv.canvasx(e.x)
+        cy = self._cv.canvasy(e.y)
+        nid = self._find_node_at(cx, cy)
+        if nid:
+            self._edit_node(nid)
+            return
+        lid = self._find_link_near(cx, cy)
+        if lid:
+            self._edit_link(lid)
+
+    def _on_canvas_right(self, e):
+        cx = self._cv.canvasx(e.x)
+        cy = self._cv.canvasy(e.y)
+        nid = self._find_node_at(cx, cy)
+        if nid:
+            self._node_context(e, nid)
+            return
+        lid = self._find_link_near(cx, cy)
+        if lid:
+            self._link_context(e, lid)
+
+    def _on_mouse_move(self, e):
+        """Draw the rubber-band wire while wiring is in progress."""
+        if self._wire_src_nid is None:
+            return
+        cx, cy = self._cv.canvasx(e.x), self._cv.canvasy(e.y)
+        if self._rubber_band is not None:
+            self._cv.delete(self._rubber_band)
+        x1, y1 = self._wire_src_px, self._wire_src_py
+        ctrl = max(40, abs(cx - x1) // 2)
+        self._rubber_band = self._cv.create_line(
+            x1, y1, x1 + ctrl, y1, cx - ctrl, cy, cx, cy,
+            smooth=True, width=2, fill=C["warning"], dash=(5, 3), tags="rubber")
+
+    def _pan_start(self, e): self._cv.scan_mark(e.x, e.y)
+    def _pan_move(self, e):  self._cv.scan_dragto(e.x, e.y, gain=1)
+
+    def _on_mousewheel(self, e):
+        if e.state & 0x4:
+            factor = 1.1 if e.delta > 0 else 0.9
+            self._cv.scale("all", e.x, e.y, factor, factor)
+        else:
+            self._cv.yview_scroll(-1 if e.delta > 0 else 1, "units")
+
+    def _node_context(self, e, nid: str):
+        nd   = self._model.nodes[nid]
+        kind = nd["kind"]
+        menu = tk.Menu(self._cv, tearoff=0, bg=C["bg2"], fg=C["text"],
+                       font=FM.small, activebackground=C["accent"], activeforeground=C["bg2"])
+        menu.add_command(label="✏  Edit specs…",   command=lambda: self._edit_node(nid))
+        menu.add_command(label="⚙  Set interfaces…",command=lambda: self._set_interfaces(nid))
+        if kind == "Switch":
+            menu.add_separator()
+            menu.add_command(label="🔬  Advanced design…",
+                             command=lambda: SwitchDesigner(self.winfo_toplevel(), nd))
+        menu.add_separator()
+        menu.add_command(label="⎘  Copy",  command=lambda: self._copy_node(nid))
+        menu.add_command(label="✂  Cut",   command=lambda: self._cut_node(nid))
+        menu.add_separator()
+        menu.add_command(label="✕  Delete",command=lambda: self._model.remove_node(nid))
+        menu.tk_popup(e.x_root, e.y_root)
+
+    def _link_context(self, e, lid: str):
+        menu = tk.Menu(self._cv, tearoff=0, bg=C["bg2"], fg=C["text"],
+                       font=FM.small, activebackground=C["accent"], activeforeground=C["bg2"])
+        menu.add_command(label="✏  Edit fiber specs…", command=lambda: self._edit_link(lid))
+        menu.add_separator()
+        menu.add_command(label="✕  Delete",            command=lambda: self._model.remove_link(lid))
+        menu.tk_popup(e.x_root, e.y_root)
+
+    def _edit_node(self, nid: str):
+        nd = self._model.nodes.get(nid)
+        if nd:
+            SpecDialog(self.winfo_toplevel(), nd, f"{nd['kind']} — {nid}")
+            self._full_redraw()
+
+    def _edit_link(self, lid: str):
+        lk = self._model.links.get(lid)
+        if lk:
+            if "kind" not in lk: lk["kind"] = "Fiber"
+            SpecDialog(self.winfo_toplevel(), lk, f"Fiber link — {lid}")
+            self._full_redraw()
+
+    def _set_interfaces(self, nid: str):
+        nd = self._model.nodes[nid]
+        dlg = tk.Toplevel(self.winfo_toplevel())
+        dlg.title(f"Interfaces — {nid}")
+        dlg.configure(bg=C["bg"])
+        dlg.grab_set()
+        dlg.resizable(False, False)
+        n_in_var  = tk.IntVar(value=int(nd.get("n_inputs",  2)))
+        n_out_var = tk.IntVar(value=int(nd.get("n_outputs", 2)))
+        for i, (lbl, var) in enumerate([("Input interfaces:", n_in_var), ("Output interfaces:", n_out_var)]):
+            tk.Label(dlg, text=lbl, font=FM.small, fg=C["text"], bg=C["bg"]).grid(
+                row=i, column=0, padx=14, pady=8, sticky="w")
+            tk.Spinbox(dlg, from_=1, to=16, textvariable=var, width=5,
+                       font=FM.mono, bg=C["bg3"], fg=C["text"], relief="flat").grid(
+                row=i, column=1, padx=8)
+        _sep(dlg).grid(row=2, columnspan=2, sticky="ew", pady=6)
+        def _ok():
+            nd["n_inputs"]  = n_in_var.get()
+            nd["n_outputs"] = n_out_var.get()
+            dlg.destroy()
+            self._full_redraw()
+        _button(dlg, "OK", command=_ok, padx=14, pady=4).grid(row=3, column=0, padx=14, pady=8, sticky="w")
+        _ghost_button(dlg, "Cancel", command=dlg.destroy, padx=10, pady=4).grid(row=3, column=1, sticky="w")
+
+    def _delete_selected(self):
+        if self._selected_nid and self._selected_nid in self._model.nodes:
+            self._model.remove_node(self._selected_nid); self._selected_nid = None
+        elif self._selected_lid and self._selected_lid in self._model.links:
+            self._model.remove_link(self._selected_lid); self._selected_lid = None
+
+    def _copy_node(self, nid: str):
+        import copy
+        self._clipboard = copy.deepcopy(self._model.nodes[nid])
+
+    def _cut_node(self, nid: str):
+        self._copy_node(nid)
+        self._model.remove_node(nid)
+
+    def _copy(self):
+        if self._selected_nid: self._copy_node(self._selected_nid)
+
+    def _cut(self):
+        if self._selected_nid: self._cut_node(self._selected_nid)
+
+    def _paste(self):
+        if self._clipboard is None: return
+        import copy
+        new_nd = copy.deepcopy(self._clipboard)
+        new_id = NetworkModel._new_id(new_nd["kind"].lower())
+        new_nd["id"]    = new_id
+        new_nd["label"] = new_id
+        new_nd["x"]     = new_nd.get("x", 100) + self.GRID * 3
+        new_nd["y"]     = new_nd.get("y", 100) + self.GRID * 3
+        self._model.nodes[new_id] = new_nd
+        self._model._notify()
+        self._selected_nid = new_id
+
+
+                                                                               
+                          
+                                                                               
+
+class SwitchDesigner(tk.Toplevel):
+    def __init__(self, master, switch_nd: dict):
+        super().__init__(master)
+        self.title(f"Switch Advanced Design — {switch_nd['id']}")
+        self.configure(bg=C["bg"])
+        self.geometry("900x620")
+        self._nd        = switch_nd
+        self._int_model = NetworkModel()
+        self._build()
+
+    def _build(self):
+        tk.Label(self, text=f"  Internal design of {self._nd['id']}",
+                 font=FM.head, fg=C["warning"], bg=C["bg"],
+                 anchor="w", padx=12, pady=10).pack(fill="x")
+        _sep(self).pack(fill="x")
+
+        tb = tk.Frame(self, bg=C["bg"], height=40)
+        tb.pack(fill="x")
+        tb.pack_propagate(False)
+        tk.Label(tb, text="  Add:", font=FM.small, fg=C["muted"], bg=C["bg"]).pack(side="left")
+        for kind, color in [("BS", C["accent2"]), ("PBS", C["comm"]), ("BSM", C["danger"])]:
+            _ghost_button(tb, kind, accent=color,
+                          command=lambda k=kind: self._add(k),
+                          padx=8, pady=3).pack(side="left", padx=2, pady=4)
+
+        self._mode_btns: dict[str, tk.Button] = {}
+        self._canvas_widget = None
+        for mode, lbl in [("select","↖ Select"),("link","⟵ Wire"),("delete","✕ Del")]:
+            b = _ghost_button(tb, lbl, command=lambda m=mode: self._set_mode(m), padx=7, pady=3)
+            b.pack(side="left", padx=2, pady=4)
+            self._mode_btns[mode] = b
+
+        self._canvas_widget = NetworkCanvas(self, self._int_model)
+        self._canvas_widget.pack(fill="both", expand=True)
+        self._set_mode("select")
+        self._draw_stubs()
+
+        _sep(self).pack(fill="x")
+        _ghost_button(self, "Close", command=self.destroy, padx=14, pady=5).pack(
+            side="right", padx=14, pady=8)
+
+    def _set_mode(self, mode: str):
+        if self._canvas_widget:
+            self._canvas_widget.set_mode(mode)
+        for m, b in self._mode_btns.items():
+            b.config(bg=C["accent"] if m==mode else C["bg2"],
+                     fg=C["bg2"]    if m==mode else C["accent"])
+
+    def _add(self, kind: str):
+        if self._canvas_widget:
+            self._canvas_widget.add_component(kind)
+
+    def _draw_stubs(self):
+        n_in  = int(self._nd.get("n_inputs",  2))
+        n_out = int(self._nd.get("n_outputs", 2))
+        for i in range(n_in):
+            nid = self._int_model.add_node("BS", x=40, y=60+i*80)
+            nd  = self._int_model.nodes[nid]
+            nd["label"] = f"EXT_IN{i+1}"
+            nd["n_inputs"] = 0; nd["n_outputs"] = 1
+        for i in range(n_out):
+            nid = self._int_model.add_node("BS", x=700, y=60+i*80)
+            nd  = self._int_model.nodes[nid]
+            nd["label"] = f"EXT_OUT{i+1}"
+            nd["n_inputs"] = 1; nd["n_outputs"] = 0
+
+
+                                                                               
+              
+                                                                               
+
+class NetworkPanel(_Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._model = NetworkModel()
+        self._tab_frames: dict[str, tk.Frame] = {}
+        self._build()
+
+    def _build(self):
+        _panel_header(self,
+            "◈  Network",
+            "Configure the distributed quantum network topology.",
+            C["accent2"])
+
+        tab_bar = _frame(self, bg=C["bg3"])
+        tab_bar.pack(fill="x")
+        for name in ("Table", "Designer"):
+            btn = tk.Label(tab_bar, text=name, font=FM.menu,
+                           fg=C["muted"], bg=C["bg3"], padx=20, pady=10, cursor="hand2")
+            btn.pack(side="left")
+            btn.bind("<Button-1>", lambda e, n=name: self._switch(n))
+            setattr(self, f"_tab_{name}", btn)
+        _sep(self).pack(fill="x")
+
+        container = _frame(self)
+        container.pack(fill="both", expand=True)
+
+        t1 = _frame(container)
+        t1.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._build_table(t1)
+        self._tab_frames["Table"] = t1
+
+        t2 = _frame(container)
+        t2.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._build_designer(t2)
+        self._tab_frames["Designer"] = t2
+
+        self._switch("Table")
+
+    def _switch(self, name: str):
+        for n in ("Table", "Designer"):
+            btn = getattr(self, f"_tab_{n}")
+            btn.config(fg=C["accent2"] if n==name else C["muted"],
+                       bg=C["bg2"] if n==name else C["bg3"])
+        self._tab_frames[name].lift()
+
+    def _build_table(self, parent):
+        row = _frame(parent)
+        row.pack(fill="x", padx=28, pady=(18, 10))
+        _label(row, "Servers:").pack(side="left")
+        self._n_srv = tk.IntVar(value=2)
+        tk.Spinbox(row, from_=2, to=16, textvariable=self._n_srv, width=5,
+                   font=FM.mono, bg=C["bg3"], fg=C["text"],
+                   buttonbackground=C["bg3"], relief="flat",
+                   command=self._refresh_table).pack(side="left", padx=(4, 20))
+        _label(row, "Topology:").pack(side="left")
+        self._topo = tk.StringVar(value="All-to-all")
+        om = tk.OptionMenu(row, self._topo, "All-to-all", "Linear chain", "Star", "Ring", "Custom")
+        om.config(font=FM.small, bg=C["bg3"], fg=C["text"],
+                  activebackground=C["accent2"], relief="flat")
+        om["menu"].config(bg=C["bg3"], fg=C["text"])
+        om.pack(side="left")
+
+        _section_label(parent, "Link parameters", C["accent2"])
+        self._table_frame = _frame(parent)
+        self._table_frame.pack(fill="x", padx=28, pady=(0, 14))
+        self._refresh_table()
+
+        row2 = _frame(parent)
+        row2.pack(fill="x", padx=28, pady=(0, 14))
+        for lbl, default in [("Ebit rate (Hz):", "1000"), ("Link latency (µs):", "10")]:
+            _label(row2, lbl).pack(side="left")
+            e = _entry(row2, width=10, accent=C["accent2"])
+            e.insert(0, default)
+            e.pack(side="left", padx=(4, 20))
+
+        _ghost_button(parent, "⟳  Sync to Designer", accent=C["accent2"],
+                      command=self._sync_to_designer, padx=10, pady=4).pack(anchor="w", padx=28)
+
+    def _refresh_table(self):
+        for w in self._table_frame.winfo_children():
+            w.destroy()
+        n = self._n_srv.get()
+        hr = _frame(self._table_frame, bg=C["bg3"])
+        hr.pack(fill="x")
+        for h, ww in [("Link",14),("Distance (km)",14),("Fidelity",12),("Noise channel",18),("γ / p",10)]:
+            tk.Label(hr, text=h, font=FM.subh, fg=C["accent2"],
+                     bg=C["bg3"], width=ww, anchor="w").pack(side="left", padx=4, pady=5)
+        _sep(self._table_frame).pack(fill="x")
+        self._link_rows = []
+        for i in range(n - 1):
+            bg = C["bg3"] if i%2==0 else C["bg2"]
+            rr = _frame(self._table_frame, bg=bg)
+            rr.pack(fill="x")
+            _label(rr, f"S{i} ↔ S{i+1}", fg=C["text"], bg=bg, width=14, anchor="w", font=FM.mono).pack(side="left", padx=4, pady=3)
+            row_data = {}
+            for key, default, w in [("dist","10",14),("fid","0.99",12)]:
+                e = tk.Entry(rr, width=w, font=FM.mono,
+                             bg=C["bg2"] if i%2==0 else C["bg3"],
+                             fg=C["text"], insertbackground=C["accent2"], relief="flat")
+                e.insert(0, default)
+                e.pack(side="left", padx=4)
+                row_data[key] = e
+            ch_var = tk.StringVar(value="Amplitude Damping")
+            om = tk.OptionMenu(rr, ch_var, "Amplitude Damping", "Phase Damping", "Depolarization")
+            om.config(font=FM.small, bg=C["bg3"], fg=C["text"],
+                      activebackground=C["accent2"], relief="flat", width=16)
+            om["menu"].config(bg=C["bg3"], fg=C["text"])
+            om.pack(side="left", padx=4)
+            row_data["channel"] = ch_var
+            gp = tk.Entry(rr, width=8, font=FM.mono,
+                          bg=C["bg2"] if i%2==0 else C["bg3"],
+                          fg=C["text"], insertbackground=C["accent2"], relief="flat")
+            gp.insert(0, "0.01")
+            gp.pack(side="left", padx=4)
+            row_data["gamma"] = gp
+            self._link_rows.append((i, row_data))
+
+    def _sync_to_designer(self):
+        self._model.nodes.clear()
+        self._model.links.clear()
+        n = self._n_srv.get()
+        node_ids = []
+        for i in range(n):
+            nid = self._model.add_node("QPU", x=60+i*160, y=200)
+            self._model.nodes[nid]["label"] = f"S{i}"
+            node_ids.append(nid)
+        for i, (idx, rd) in enumerate(self._link_rows):
+            lid = self._model.add_link(node_ids[idx], node_ids[idx+1])
+            lk  = self._model.links[lid]
+            lk["length"]   = rd["dist"].get() + " km"
+            lk["fidelity"] = rd["fid"].get()
+            lk["channel"]  = rd["channel"].get()
+            lk["gamma"]    = rd["gamma"].get()
+        self._switch("Designer")
+
+    def _build_designer(self, parent):
+        tb = tk.Frame(parent, bg=C["bg"], height=44,
+                      highlightbackground=C["border"], highlightthickness=1)
+        tb.pack(fill="x")
+        tb.pack_propagate(False)
+
+        _label(tb, "  Add:", fg=C["muted"], bg=C["bg"], font=FM.small).pack(side="left")
+        for kind in ("QPU", "BS", "PBS", "Switch"):
+            color = NetworkCanvas.KIND_COLOR[kind]
+            icon  = NetworkCanvas.KIND_ICON[kind]
+            _ghost_button(tb, f"{icon} {kind}", accent=color,
+                          command=lambda k=kind: self._canvas.add_component(k),
+                          padx=8, pady=4).pack(side="left", padx=2, pady=4)
+
+        tk.Frame(tb, bg=C["border"], width=1).pack(side="left", fill="y", padx=6)
+
+        self._mode_btns: dict[str, tk.Button] = {}
+        for mode, label in [("select","↖ Select"),("link","⟵ Link"),("delete","✕ Delete")]:
+            b = _ghost_button(tb, label, accent=C["accent2"],
+                              command=lambda m=mode: self._set_mode(m), padx=8, pady=4)
+            b.pack(side="left", padx=2, pady=4)
+            self._mode_btns[mode] = b
+
+        tk.Frame(tb, bg=C["border"], width=1).pack(side="left", fill="y", padx=6)
+        _ghost_button(tb, "💾 Export JSON", command=self._export, padx=8, pady=4).pack(side="left", padx=2, pady=4)
+        _ghost_button(tb, "📂 Import JSON", command=self._import, padx=8, pady=4).pack(side="left", padx=2, pady=4)
+        _ghost_button(tb, "🗑 Clear all", accent=C["danger"], command=self._clear, padx=8, pady=4).pack(side="left", padx=2, pady=4)
+        _label(tb, "  Double-click to edit · right-click for menu",
+               fg=C["hint"], bg=C["bg"], font=FM.small).pack(side="right", padx=10)
+
+        self._canvas = NetworkCanvas(parent, self._model)
+        self._canvas.pack(fill="both", expand=True)
+        self._set_mode("select")
+
+    def _set_mode(self, mode: str):
+        self._canvas.set_mode(mode)
+        for m, b in self._mode_btns.items():
+            b.config(bg=C["accent2"] if m==mode else C["bg2"],
+                     fg=C["bg2"]     if m==mode else C["accent2"])
+
+    def _export(self):
+        path = filedialog.asksaveasfilename(defaultextension=".json",
+            filetypes=[("JSON","*.json"),("All","*.*")])
+        if path:
+            try:
+                with open(path,"w") as fh: fh.write(self._canvas.export_json())
+                messagebox.showinfo("Saved", f"Network saved to:\n{path}")
+            except Exception as exc:
+                messagebox.showerror("Error", str(exc))
+
+    def _import(self):
+        path = filedialog.askopenfilename(filetypes=[("JSON","*.json"),("All","*.*")])
+        if path:
+            try:
+                with open(path) as fh: self._canvas.import_json(fh.read())
+            except Exception as exc:
+                messagebox.showerror("Error", str(exc))
+
+    def _clear(self):
+        if messagebox.askyesno("Clear", "Remove all components?"):
+            self._model.nodes.clear()
+            self._model.links.clear()
+            self._model._notify()
+
+
+                                                                               
+              
+                                                                               
+
+class CompilePanel(_Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._build()
+
+    def _build(self):
+        _panel_header(self,
+            "◈  Compile",
+            "Partition and compile the circuit for distribution.",
+            C["success"])
+
+        _section_label(self, "Compiler options", C["success"])
+        opts = _card(self, padx=20, pady=16)
+        opts.pack(fill="x", padx=28, pady=(0, 20))
+
+        for lbl, default in [
+            ("Partitioner:", None),
+            ("Optimisation level:", None),
+            ("Max ebits per link:", "10"),
+            ("Seed:", "42"),
+        ]:
+            row = _frame(opts)
+            row.pack(fill="x", pady=4)
+            _label(row, lbl, width=24, anchor="w").pack(side="left")
+            if default is None:
+                choices = (["MinCut","KaHyPar","Greedy"]
+                           if "Part" in lbl else
+                           ["0 — none","1 — light","2 — full"])
+                var = tk.StringVar(value=choices[0])
+                om  = tk.OptionMenu(row, var, *choices)
+                om.config(font=FM.small, bg=C["bg3"], fg=C["text"],
+                          activebackground=C["success"], relief="flat")
+                om["menu"].config(bg=C["bg3"], fg=C["text"])
+                om.pack(side="left")
+            else:
+                e = _entry(row, width=10, accent=C["success"])
+                e.insert(0, default)
+                e.pack(side="left", padx=4)
+
+        _button(self, "▶  Compile", accent=C["success"],
+                command=self._compile, padx=20, pady=8).pack(anchor="w", padx=28, pady=(0, 16))
+
+        _section_label(self, "Compiler log", C["success"])
+        self._log = scrolledtext.ScrolledText(
+            self, font=FM.mono, bg=C["bg3"], fg=C["text"],
+            insertbackground=C["success"], relief="flat",
+            height=12, padx=10, pady=8, state="disabled",
+        )
+        self._log.pack(fill="both", expand=True, padx=28, pady=(0, 20))
+
+    def _compile(self):
+        self._log.config(state="normal")
+        self._log.delete("1.0", "end")
+        self._log.config(state="disabled")
+        msgs = [
+            "[INFO]  Reading circuit…",
+            "[INFO]  Running MinCut partitioner…",
+            "[INFO]  Partition: server_0 ← {q0,q1,q2}  server_1 ← {q3,q4}",
+            "[INFO]  Inserting ebit pairs at gate indices: 4, 11, 17",
+            "[INFO]  Optimisation pass 1 complete — depth reduced by 12 %",
+            "[INFO]  Generating distributed circuit…",
+            "[OK]    Compilation successful. 3 communication gates inserted.",
+        ]
+        def _stream():
+            for m in msgs:
+                time.sleep(0.35)
+                self._log.after(0, lambda msg=m: (
+                    self._log.config(state="normal"),
+                    self._log.insert("end", msg + "\n"),
+                    self._log.see("end"),
+                    self._log.config(state="disabled"),
+                ))
+        threading.Thread(target=_stream, daemon=True).start()
+
+
+                                                                               
+               
+                                                                               
+
+class SchedulePanel(_Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._build()
+
+    def _build(self):
+        _panel_header(self,
+            "◈  Schedule",
+            "Assign timing and generate the Gantt visualisation.",
+            C["warning"])
+
+        _section_label(self, "Gate timings", C["warning"])
+        tbl = _card(self, padx=16, pady=12)
+        tbl.pack(fill="x", padx=28, pady=(0, 20))
+
+                      
+        hdr = _frame(tbl, bg=C["bg3"])
+        hdr.pack(fill="x")
+        for h, ww in [("Gate", 22), ("Duration", 12), ("Unit", 8)]:
+            tk.Label(hdr, text=h, font=FM.subh, fg=C["warning"],
+                     bg=C["bg3"], width=ww, anchor="w").pack(side="left", padx=4, pady=5)
+        _sep(tbl).pack(fill="x")
+
+        defaults = [
+            ("H",                "10"),
+            ("CX",               "50"),
+            ("CU1",              "50"),
+            ("Measure",          "100"),
+            ("starting_process", "200"),
+            ("end_process",      "200"),
+        ]
+        for i, (gate, ns) in enumerate(defaults):
+            bg = C["bg2"] if i%2==0 else C["bg3"]
+            row = _frame(tbl, bg=bg)
+            row.pack(fill="x", pady=2)
+            tk.Label(row, text=gate, font=FM.mono, fg=C["warning"],
+                     bg=bg, width=22, anchor="w").pack(side="left", padx=6)
+            e = tk.Entry(row, width=8, font=FM.mono,
+                         bg=C["bg3"] if i%2==0 else C["bg2"],
+                         fg=C["text"], insertbackground=C["warning"], relief="flat")
+            e.insert(0, ns)
+            e.pack(side="left", padx=4)
+            tk.Label(row, text="ns", font=FM.small, fg=C["muted"], bg=bg).pack(side="left")
+
+                    
+        row2 = _frame(self)
+        row2.pack(fill="x", padx=28, pady=(0, 16))
+        _label(row2, "Output file:").pack(side="left")
+        self._out_var = tk.StringVar(value="gantt_timed.html")
+        _entry(row2, width=30, accent=C["warning"]).pack(side="left", padx=8)
+        for txt, ac, cmd in [
+            ("▶  Timed Gantt",  C["warning"], self._gen_timed),
+            ("▶  Layer Gantt",  C["accent"],  self._gen_layers),
+        ]:
+            _button(row2, txt, accent=ac, command=cmd, padx=10, pady=5).pack(side="left", padx=(0, 8))
+
+        self._status = _label(self, "", fg=C["muted"])
+        self._status.pack(anchor="w", padx=28)
+
+                             
+        prev = _card(self)
+        prev.pack(fill="both", expand=True, padx=28, pady=(16, 20))
+        tk.Label(prev, text="Gantt preview will appear here after generation.",
+                 font=FM.small, fg=C["hint"], bg=C["bg2"]).place(relx=0.5, rely=0.5, anchor="center")
+
+    def _gen_timed(self):
+        self._status.config(text="✓  gantt_timed.html written. Open it in your browser.", fg=C["success"])
+
+    def _gen_layers(self):
+        self._status.config(text="✓  gantt.html written. Open it in your browser.", fg=C["success"])
+
+
+                                                                               
+          
+                                                                               
+
+class RunPanel(_Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._running = False
+        self._build()
+
+    def _build(self):
+        _panel_header(self,
+            "◈  Run",
+            "Execute the distributed circuit on the target backend.",
+            C["danger"])
+
+        row = _frame(self)
+        row.pack(fill="x", padx=28, pady=(18, 16))
+        _label(row, "Backend:").pack(side="left")
+        self._backend = tk.StringVar(value="Statevector simulator")
+        om = tk.OptionMenu(row, self._backend,
+                           "Statevector simulator", "QASM simulator",
+                           "IBM Quantum (real device)", "Custom pytket backend")
+        om.config(font=FM.small, bg=C["bg3"], fg=C["text"],
+                  activebackground=C["danger"], relief="flat")
+        om["menu"].config(bg=C["bg3"], fg=C["text"])
+        om.pack(side="left", padx=10)
+        _label(row, "Shots:").pack(side="left", padx=(20, 6))
+        self._shots = _entry(row, width=8, accent=C["danger"])
+        self._shots.insert(0, "1024")
+        self._shots.pack(side="left")
+
+        btn_row = _frame(self)
+        btn_row.pack(fill="x", padx=28, pady=(0, 16))
+        self._run_btn = _button(btn_row, "▶  Run", accent=C["danger"],
+                                command=self._run, padx=20, pady=8)
+        self._run_btn.pack(side="left")
+        _ghost_button(btn_row, "■  Stop", accent=C["danger"],
+                      command=self._stop, padx=14, pady=8).pack(side="left", padx=10)
+
+                      
+        self._prog_var = tk.DoubleVar(value=0)
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Danger.Horizontal.TProgressbar",
+                        troughcolor=C["bg3"], background=C["danger"],
+                        bordercolor=C["bg3"],
+                        lightcolor=C["danger"], darkcolor=C["danger"])
+        self._prog = ttk.Progressbar(self, variable=self._prog_var,
+                                     style="Danger.Horizontal.TProgressbar",
+                                     maximum=100, mode="determinate")
+        self._prog.pack(fill="x", padx=28, pady=(0, 16))
+
+        _section_label(self, "Execution log", C["danger"])
+        self._log = scrolledtext.ScrolledText(
+            self, font=FM.mono, bg=C["bg3"], fg=C["text"],
+            insertbackground=C["danger"], relief="flat",
+            height=10, padx=10, pady=8, state="disabled",
+        )
+        self._log.pack(fill="both", expand=True, padx=28, pady=(0, 20))
+
+    def _log_write(self, msg):
+        self._log.config(state="normal")
+        self._log.insert("end", msg + "\n")
+        self._log.see("end")
+        self._log.config(state="disabled")
+
+    def _run(self):
+        if self._running: return
+        self._running = True
+        self._prog_var.set(0)
+        self._log.config(state="normal")
+        self._log.delete("1.0", "end")
+        self._log.config(state="disabled")
+        msgs = [
+            (10,  "[INFO]  Connecting to backend…"),
+            (25,  "[INFO]  Transpiling for backend gate set…"),
+            (40,  "[INFO]  Submitting job…"),
+            (60,  "[INFO]  Running shot 1 / 1024…"),
+            (80,  "[INFO]  Collecting results…"),
+            (95,  "[INFO]  Post-processing measurement outcomes…"),
+            (100, "[OK]    Job complete. Results ready."),
+        ]
+        def _worker():
+            for pct, msg in msgs:
+                if not self._running: break
+                time.sleep(0.5)
+                self._prog_var.set(pct)
+                self.after(0, lambda m=msg: self._log_write(m))
+            self._running = False
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _stop(self):
+        self._running = False
+        self._log_write("[WARN]  Execution stopped by user.")
+
+
+                                                                               
+             
+                                                                               
+
+class MainWindow(tk.Tk):
+    MENU_ITEMS = [
+        ("Circuit",  "◈", CircuitPanel,  C["accent"]),
+        ("Network",  "⬡", NetworkPanel,  C["accent2"]),
+        ("Compile",  "⚙", CompilePanel,  C["success"]),
+        ("Schedule", "▦", SchedulePanel, C["warning"]),
+        ("Run",      "▶", RunPanel,      C["danger"]),
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.withdraw()
+        self.title("QNEST — Quantum Network End-to-end Simulation Toolkit")
+        self.configure(bg=C["bg"])
+
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        w, h   = int(sw * 0.82), int(sh * 0.82)
+        self.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+        self.minsize(900, 600)
+
+        self._panels:    dict[str, tk.Frame]  = {}
+        self._menu_btns: dict[str, tk.Label]  = {}
+        self._menu_accents: dict[str, str]    = {}
+        self._active: str = ""
+
+        self._build_layout()
+        self._select("Circuit")
+                                                                 
+        FM._init()
+        FM.scale(w, h)
+        self._last_size = (w, h)
+        self.bind("<Configure>", self._on_resize)
+        SplashScreen(self)
+
+    def _build_layout(self):
+                                                                                
+        topbar = tk.Frame(self, bg=C["bg2"], height=50,
+                          highlightbackground=C["border"], highlightthickness=1)
+        topbar.pack(fill="x", side="top")
+        topbar.pack_propagate(False)
+
+                   
+        tk.Label(topbar, text="◈ QNEST",
+                 font=FM.head,
+                 fg=C["accent"], bg=C["bg2"], padx=20).pack(side="left", fill="y")
+        tk.Frame(topbar, bg=C["border"], width=1).pack(side="left", fill="y", pady=10)
+        tk.Label(topbar, text="Quantum Network End-to-end Simulation Toolkit",
+                 font=FM.body,
+                 fg=C["muted"], bg=C["bg2"], padx=14).pack(side="left", fill="y")
+
+                                                                                
+        body = tk.Frame(self, bg=C["bg"])
+        body.pack(fill="both", expand=True)
+
+                                                                                
+        sidebar = tk.Frame(body, bg=C["bg2"],
+                           highlightbackground=C["border"], highlightthickness=1)
+        sidebar.pack(side="left", fill="y")
+        sidebar.pack_propagate(False)
+        self.update_idletasks()
+        sidebar.config(width=max(140, self.winfo_width() // 7))
+        self.bind("<Configure>", lambda e: sidebar.config(
+            width=max(140, self.winfo_width() // 7)))
+
+        tk.Label(sidebar, text="MENU", font=FM.small,
+                 fg=C["hint"], bg=C["bg2"], padx=16, pady=14).pack(anchor="w")
+        _sep(sidebar).pack(fill="x")
+
+        for name, icon, _, accent in self.MENU_ITEMS:
+            self._menu_accents[name] = accent
+            btn = tk.Label(sidebar,
+                text=f"  {icon}  {name}",
+                font=FM.menu, fg=C["muted"], bg=C["bg2"],
+                anchor="w", padx=8, pady=14, cursor="hand2")
+            btn.pack(fill="x")
+            btn.bind("<Button-1>", lambda e, n=name: self._select(n))
+            btn.bind("<Enter>",    lambda e, b=btn, n=name: self._hover(b, n, True))
+            btn.bind("<Leave>",    lambda e, b=btn, n=name: self._hover(b, n, False))
+            self._menu_btns[name] = btn
+
+        tk.Label(sidebar, text="v0.1.0", font=FM.small,
+                 fg=C["hint"], bg=C["bg2"], pady=10).pack(side="bottom")
+
+                                                                                
+        self._content = tk.Frame(body, bg=C["bg2"])
+        self._content.pack(side="left", fill="both", expand=True)
+
+        for name, _, PanelClass, _ in self.MENU_ITEMS:
+            panel = PanelClass(self._content)
+            panel.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self._panels[name] = panel
+
+    def _on_resize(self, event):
+                                                                         
+        if event.widget is not self:
+            return
+        w, h = event.width, event.height
+        if (w, h) == getattr(self, "_last_size", None):
+            return
+        self._last_size = (w, h)
+        FM.scale(w, h)
+
+    def _select(self, name: str):
+        if self._active:
+            prev = self._menu_btns[self._active]
+            prev.config(fg=C["muted"], bg=C["bg2"])
+        self._active = name
+        accent = self._menu_accents[name]
+        btn    = self._menu_btns[name]
+        btn.config(fg=accent, bg=C["menu_sel"])
+        self._panels[name].lift()
+
+    def _hover(self, btn: tk.Label, name: str, entering: bool):
+        if name == self._active: return
+        btn.config(bg=C["menu_hover"] if entering else C["bg2"])
+
+
+                                                                               
+             
+                                                                               
+
+if __name__ == "__main__":
+    app = MainWindow()
+    app.mainloop()

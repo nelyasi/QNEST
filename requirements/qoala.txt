@@ -1,0 +1,9 @@
+numpy
+pandas
+ipykernel
+jupyter_client
+ipython
+notebook
+matplotlib
+pillow
+playwright

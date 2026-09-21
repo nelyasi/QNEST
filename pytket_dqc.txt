@@ -1,0 +1,36 @@
+# ============================================================
+# SECONDARY KERNEL:  pytket_dqc
+# ============================================================
+#
+# Runs every %%pytket cell:
+#
+#     steps 1-4
+#     circuit cleaning, DQCPass, distribution,
+#     EJPP representation, JSON bridge export
+#
+# Installed by install.sh into the conda env named "pytket_dqc".
+#
+# The kernel MUST be registered under the name "pytket_dqc" --
+# src/config.py refers to it by that exact string.
+#
+# ------------------------------------------------------------
+# NOT LISTED HERE (handled separately by install.sh):
+#
+#   pytket-dqc  -> installed from GitHub
+# ------------------------------------------------------------
+
+# --- pytket-dqc partitioning backends -----------------------
+# kahypar has no macOS arm64 wheel and compiles from source;
+# install.sh installs a build toolchain first if needed.
+kahypar
+hypernetx
+
+# --- benchmark circuits -------------------------------------
+# pytket is deliberately NOT pinned here: pytket-dqc declares
+# the version range it works with, and pinning separately is
+# the usual way this env gets broken.
+mqt.bench
+qiskit
+
+# --- notebook -----------------------------------------------
+ipykernel

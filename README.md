@@ -1,151 +1,232 @@
-<p align="center">
-  <img src="docs/images/logo-qnest.png" alt="QNEST" width="620">
-</p>
+# QNEST
 
-<h1 align="center">QNEST</h1>
-<p align="center"><strong>Quantum Network End-to-End Simulation Toolkit</strong></p>
-<p align="center">
-  A GUI-driven framework for end-to-end simulation of optical quantum data centers.<br>
-  Windows · macOS · Linux
-</p>
+QNEST is a desktop toolkit for building and running end-to-end quantum-network experiments. The application keeps the complete experiment in one workspace: circuit preparation, physical-network definition, distributed compilation, Qoala/NetSquid scheduling, and protocol analysis are connected rather than treated as separate scripts.
 
----
+The current release is **v0.3.12**.
 
-## What it is
+## What is included
 
-Quantum data centers connect multiple QPUs over an optical network, but the software for studying them
-is split across three worlds: circuit frameworks that assume a single device, distributed compilers that
-treat communication abstractly, and network simulators that don't compile or schedule circuits.
+The main workflow is:
 
-QNEST puts all five stages in one graphical environment:
+**Circuit → Network → Compile / Distribute → Schedule → Run / Analyse**
 
-| Stage | What happens | Built on |
-|---|---|---|
-| **Circuit** | Choose the benchmark circuit and the number of qubits; set gate and process durations | MQT Bench |
-| **Network** | Define the topology and the connectivity between QPUs: beam splitters, switches, quantum memories, optical links | — |
-| **Distribute** | Compile the circuit against that network and distribute it across the QPUs | pytket-dqc |
-| **Schedule** | Pass the distributed circuit to the QPUs and schedule it, then export an interactive Gantt chart as HTML | Qoala, NetSquid |
-| **Run** | Apply the switching protocols for an all-photonic or memory-assisted architecture, and report results as detailed tables | — |
+QNEST uses two Python environments on purpose. The `qoala` environment runs the desktop interface, Qoala/NetSquid scheduling, pandas/plotting, AFA-QSP and HAMFA-QSP. The `pytket_dqc` environment handles MQT Bench, Qiskit, pytket, pytket-DQC, DQCPass and bridge generation. The GUI communicates with the second environment through a persistent kernel bridge.
 
-Circuit scheduling and entanglement generation rest on published, validated frameworks rather than
-in-house heuristics. [Qoala](https://arxiv.org/abs/2502.17296) and NetSquid are both from TU Delft.
+The repository also contains the reference Monte Carlo notebooks and saved example figures used to check the desktop implementation.
 
-Every component is configurable: qubit count, T1 and T2, gate error, readout error, noise model, and
-calibration data fetched from a named backend.
+## Installation
 
-## At ECOC 2026
-
-QNEST is a demonstration at ECOC 2026 — **demo D22**, Tuesday 22 September, 11:00–12:30, Pavilion 1
-demo area. The abstract was accepted under the project's former name, GsOQDC.
-
-## Metrics reported
-
-- Entanglement fidelity
-- Job execution time (JET)
-- Inter-QPU communication overhead
-- Entanglement-resource utilization
-- Penalty delay caused by entanglement unavailability
-
-Results are reported as detailed tables so every event, delay and allocation stays visible; plots are
-generated from those tables for final figures.
-
-## Install
-
-Download a build for your platform from the [releases page](https://github.com/qnest-toolkit/qnest/releases),
-or run from source:
+QNEST expects Conda or Miniforge and a NetSquid account. Put the NetSquid credentials in `netsquid_credentials.txt`, then run:
 
 ```bash
-git clone https://github.com/qnest-toolkit/qnest.git
-cd qnest
-pip install -r requirements.txt
-python src/main.py
+./install.sh
 ```
 
-Python 3.10 or newer.
-
-## Repository layout
-
-```
-QNEST/
-├── src/                  GUI source code
-├── assets/               application resources and screenshots
-├── docs/                 the website (GitHub Pages)
-│   ├── index.html
-│   ├── style.css
-│   └── images/
-├── print/                brochure, handout and business card
-│   ├── brochure.html     4 panels, 2 × A4 landscape, fold once
-│   ├── handout.html      1 × A4 portrait
-│   ├── card.html         85 × 55 mm, front and back
-│   ├── print.css         shared theme for all three
-│   ├── make-pdfs.py
-│   └── *.pdf
-├── README.md
-├── LICENSE
-├── .gitignore
-└── requirements.txt
-```
-
-## Print pieces
-
-`print/` holds a brochure, a one-page handout and a business card, built on the same theme as the
-website and pulling from the same `docs/images/`. Edit the text in the `.html` files, edit
-`print.css` for colour and type, then print from the browser (margins none, scale 100%, background
-graphics on) or run `python print/make-pdfs.py`. See [print/README.md](print/README.md) for folding
-and bleed details.
-
-## Publishing the website
-
-The site is a static page with no build step. On GitHub: **Settings → Pages → Source: Deploy from a
-branch → Branch: `main`, folder: `/docs`**. It goes live at
-`https://<user>.github.io/<repo>/`.
-
-To preview locally:
+To verify an existing installation without rebuilding the environments:
 
 ```bash
-python -m http.server 8000 --directory docs
-# then open http://localhost:8000
+./install.sh --verify
 ```
 
-### Before you publish
+Useful installer options are:
 
-A few placeholders in `docs/index.html` need your real values:
-
-- `https://github.com/qnest-toolkit/qnest` — repository and releases URL (appears in the nav, download
-  cards, build instructions and footer)
-- The BibTeX entry in the **Cite** section
-- Team photos: `docs/images/team-01.png` and `team-02.png` are in place; the remaining authors show
-  initials. Drop in `team-03.png` … `team-06.png` and swap the `<span class="member__ph--initials">`
-  elements for `<img class="member__ph" src="…">` to use photos instead.
-
-## Citation
-
-```bibtex
-@inproceedings{elyasi2026qnest,
-  title     = {QNEST: A GUI-Driven Interactive Framework for End-to-End
-               Simulation of Optical Quantum Data Centers},
-  author    = {Elyasi, Seyed Navid and Bahrani, Sima and Wang, Rui and
-               Simeonidou, Dimitra and Monti, Paolo and Lin, Rui},
-  booktitle = {European Conference on Optical Communication (ECOC)},
-  year      = {2026}
-}
+```text
+--qoala-only
+--pytket-only
+--python 3.10
+--force
+--verify
 ```
 
-## Team
+NetSquid supports Linux and macOS. Windows users should run the project inside WSL.
 
-**Chalmers University of Technology**, Department of Electrical Engineering, Gothenburg, Sweden —
-Seyed Navid Elyasi, Paolo Monti, Rui Lin
+## Launching QNEST
 
-**University of Bristol**, Smart Internet Lab, Bristol, United Kingdom —
-Sima Bahrani, Rui Wang, Dimitra Simeonidou
+The normal launcher is:
 
-Contact: [elyasi@chalmers.se](mailto:elyasi@chalmers.se)
+```bash
+./launch_qnest.sh
+```
 
-## Acknowledgements
+It looks for the `qoala` interpreter directly and falls back to `conda run` when necessary. You can override the interpreter with `QNEST_PYTHON=/full/path/to/python` or the environment name with `QNEST_CONDA_ENV`.
 
-Supported by the Swedish Research Council (VR) and the UK EPSRC Integrated Quantum Networks Hub
-(EP/Z533208/1).
+Direct launch is also possible after activating the Qoala environment:
 
-## License
+```bash
+conda activate qoala
+python app_gui.py
+```
 
-MIT — see [LICENSE](LICENSE).
+## Circuit workspace
+
+The Circuit workspace supports imported QASM/Python sources, direct QASM editing, and MQT Bench generation. Experiments can be run as a single circuit or as a batch/sweep.
+
+In batch mode, scalable MQT benchmarks use an inclusive qubit sweep. The built-in assistant starter experiment is a GHZ sweep from **5 to 20 qubits in steps of 2**. QNEST checks the requested benchmark/qubit combinations against the installed MQT Bench version before generation.
+
+The Circuit page keeps two benchmark columns at normal and docked workspace widths. Long benchmark names wrap rather than changing the scientific selection.
+
+## Network workspace
+
+The Network page is the authoritative source for physical architecture and QPU capacity. It contains a tabular configuration view and a graphical designer.
+
+For predefined topologies, the Table view controls the number of QPUs, qubits per QPU and topology. An all-to-all network may use either direct QPU links or a shared switch. Shared switches support **All-photonic** and **Memory-assisted** operation.
+
+Link distance is editable. Success probability, fidelity, attempt rate, Ebit rate and propagation latency are calculated from the selected physical model. They are not arbitrary user-entered result fields.
+
+For the memory-assisted model, the memory parameters are presented together with the photonic generation parameters used before storage. The Run stage applies the HAMFA memory-age law to stored pairs.
+
+The Network page is responsive: descriptive text remains left aligned and wraps to the available workspace width, including when the AI Assistant dock is open.
+
+## Compile / Distribute
+
+Compile performs the sequence used by the research workflow:
+
+1. clean/normalise the circuit input;
+2. prepare it with `DQCPass`;
+3. distribute it with pytket-DQC;
+4. create the explicit EJPP representation; and
+5. export the bridge data consumed by the scheduler.
+
+The Compile preview retains the main circuit stages: Original, Cleaned, After DQCPass, Distributed circuit and EJPP representation. Interactive HTML and QASM representations are saved when available.
+
+## Schedule
+
+Schedule runs the Qoala/NetSquid workflow in a child process. The user-facing timing controls are expressed in microseconds while the scientific backend may retain nanoseconds internally.
+
+The scheduler produces request tables and two Gantt views: Timed Gantt and Layer Gantt. QNEST stores the local HTML representation and shows a preview in the desktop application. **Open interactive** launches the live local HTML without rerunning the scheduler.
+
+## Run / Analyse
+
+AFA-QSP and HAMFA-QSP Monte Carlo analysis is enabled only for an **All-to-all → Shared switch** network. If the network is switch-free, QNEST stops the valid workflow after Schedule and the Run page is used to collect/export the artifacts produced by the earlier stages.
+
+When Run is available, Compile and Schedule are not repeated for every Monte Carlo sample. The stochastic AFA/HAMFA protocol stage is the repeated portion.
+
+The standard reference configuration used by the bundled notebooks includes:
+
+- distribution method: `PartitioningAnnealing`;
+- distribution seed: `1`;
+- single-qubit gate: `5.5 µs`;
+- two-qubit gate: `66 µs`;
+- EPR + EJPP start: `276.471 µs`;
+- ending process: `71.99 µs`;
+- Qoala strategy: `QOALA`;
+- protocol seed: `42`;
+- Monte Carlo repetitions: `30`;
+- memory coherence constant: `2.8e9 ns`;
+- initial stored-pair fidelity: `0.9796744718797619`;
+- fidelity threshold: `0.9306907483`;
+- cutoff fraction: `0.05`.
+
+These are initial reference values. Changing a control in the GUI changes the experiment; QNEST does not silently reset researcher-selected values.
+
+### Result tables
+
+The normal Run view shows compact per-request tables rather than the simulator's internal diagnostic state.
+
+AFA-QSP displays:
+
+- Request
+- Control QPU
+- Target QPU
+- Control link
+- Target link
+- Wait window
+- Deadline
+- Punishment
+- Trials
+- Time to success
+- Blocked
+- Deadline margin
+
+HAMFA-QSP displays:
+
+- Request
+- Control QPU
+- Target QPU
+- Control link
+- Target link
+- Wait window
+- Deadline
+- Case
+- Path
+- Completion
+- Time to success
+- Punishment
+- Blocked
+- Deadline margin
+
+The tables are centred, use alternating row shading, and keep compact readable numeric formatting. Simulator-only HAMFA diagnostics remain internal for validation and aggregation and are not presented as requested scientific output.
+
+The result selector can display time columns in **ns** or **µs**. The saved per-replicate result tables remain in raw nanoseconds so changing the display unit never changes the simulation data.
+
+### Batch plots
+
+Batch mode retains the scaling figures used by the notebook workflow, including EPR pairs, punishment time, HAMFA resource use and blocked requests versus circuit size.
+
+## QNEST Assistant
+
+The right-side QNEST Assistant is a planning, configuration and explanation layer. The local default is Qwen3 8B through Ollama. It receives the current exposed QNEST controls and current scientific state on every request and must use that live state rather than assuming the workspace has not changed.
+
+For an all-to-all network where the researcher does not specify the interconnect, the assistant uses **Shared switch → Memory-assisted**. Explicit choices such as direct links or an all-photonic switch take precedence.
+
+The assistant understands the Run gating rule. It will not propose AFA/HAMFA Monte Carlo for a switch-free network. When the user asks for result interpretation, the assistant receives the same compact result tables shown in the Run page, together with the selected display unit.
+
+The default assistant experiment is:
+
+**GHZ 5→20 qubits, step 2, 7 QPUs, 4 qubits/QPU, All-to-all, Shared switch, Memory-assisted.**
+
+The assistant can manipulate the validated controls exposed by the application. It does not receive unrestricted shell or Python execution privileges. Scientific computation remains in the deterministic QNEST backend.
+
+To prepare the local model:
+
+```bash
+./setup_qwen.sh
+```
+
+The model and endpoint can then be checked under **Settings → AI Assistant**.
+
+## Output layout
+
+Each compiled circuit receives a run directory with stage-specific artifacts:
+
+```text
+runs/<experiment>/
+  01_circuit/
+  02_network/
+  03_compile/
+  04_schedule/
+  05_run/
+  logs/
+```
+
+Batch experiments are collected under `batch_runs/`. Per-circuit scientific run folders are preserved when a complete batch archive is exported.
+
+Run stores clean per-replicate AFA/HAMFA result tables under `05_run/result_tables/run_XXX/`. Aggregate Monte Carlo summaries and plot inputs are retained separately for analysis.
+
+## Settings and appearance
+
+The Settings window controls theme, UI scale, startup behaviour and AI configuration. User interface preferences are stored in:
+
+```text
+~/.qnest/ui_settings.json
+```
+
+They do not alter the scientific data unless the corresponding scientific control is explicitly changed.
+
+## Bug reports
+
+Choose **Report a Bug** from the top toolbar. QNEST prepares an email addressed to:
+
+**elyasi@chalmers.se**
+
+The dialog can also save a diagnostic ZIP containing the report text, UI settings and current-run logs. The default mail application is opened with the recipient, subject and report text filled in. If a diagnostic ZIP is created, attach it before sending the message.
+
+## Documentation
+
+The formatted user guide is `docs/QNEST_User_Guide.html`. The assistant-specific notes are in `docs/QNEST_AI_Assistant.md`. `docs/QNEST_Knowledge_Base.md` is the local factual reference supplied to the assistant for QNEST-specific questions.
+
+## Project credits
+
+QNEST is presented as a collaboration between Chalmers University of Technology and the University of Bristol. The featured senior developers are Seyed Navid Elyasi and Sima Bahrani. Project co-authors listed in the local project material are Rui Wang, Dimitra Simeonidou, Paolo Monti and Rui Lin.
+
+Project/support marks include WACQT, University of Bristol, Smart Internet Lab and the Integrated Quantum Networks Hub. The project acknowledgement cites the Swedish Research Council (VR) and the UK EPSRC Integrated Quantum Networks Hub (EP/Z533208/1).

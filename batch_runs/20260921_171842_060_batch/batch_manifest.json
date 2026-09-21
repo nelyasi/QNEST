@@ -1,0 +1,99 @@
+{
+  "generated": "2026-09-21T17:19:26",
+  "mode": "Batch / sweep",
+  "circuits": [
+    {
+      "id": "circuit_0001",
+      "name": "GHZ_State_q5",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 5,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171648_408_GHZ_State_q5",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    },
+    {
+      "id": "circuit_0002",
+      "name": "GHZ_State_q7",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 7,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171717_678_GHZ_State_q7",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    },
+    {
+      "id": "circuit_0003",
+      "name": "GHZ_State_q9",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 9,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171727_935_GHZ_State_q9",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    },
+    {
+      "id": "circuit_0004",
+      "name": "GHZ_State_q11",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 11,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171738_783_GHZ_State_q11",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    },
+    {
+      "id": "circuit_0005",
+      "name": "GHZ_State_q13",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 13,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171749_647_GHZ_State_q13",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    },
+    {
+      "id": "circuit_0006",
+      "name": "GHZ_State_q15",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 15,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171805_839_GHZ_State_q15",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    },
+    {
+      "id": "circuit_0007",
+      "name": "GHZ_State_q17",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 17,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171819_374_GHZ_State_q17",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    },
+    {
+      "id": "circuit_0008",
+      "name": "GHZ_State_q19",
+      "source": "MQT Bench",
+      "series": "GHZ State",
+      "qubits": 19,
+      "run_dir": "/Users/seyednavidelyasi/Library/CloudStorage/OneDrive-Chalmers/Desktop/SwitchSim_project/QNEST_professional_ui_v0.3.12/runs/20260921_171830_967_GHZ_State_q19",
+      "compiled": true,
+      "scheduled": true,
+      "simulated": true
+    }
+  ],
+  "batch_tables": [
+    "batch_results.csv",
+    "compile_summary.csv",
+    "schedule_summary.csv"
+  ]
+}
